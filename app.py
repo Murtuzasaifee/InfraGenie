@@ -42,7 +42,7 @@ class TerraformState(BaseModel):
     environments: EnvironmentList = Field(default_factory=EnvironmentList)
     user_requirements: str = ""
 
-# Define the template with a simple prompt approach
+# Define the template
 terraform_template = """
 You are a Terraform Expert who writes production-grade, syntactically valid, and best-practice Terraform code for AWS. Based on the user's requirements provided below, generate complete Terraform code for AWS infrastructure. Make sure to include all necessary provider blocks, resource definitions, variable declarations, and outputs. The generated code should be executable with Terraform and follow HCL syntax.
 
@@ -124,14 +124,13 @@ def generate_terraform_code(state: TerraformState):
     
     prompt = PromptTemplate.from_template(terraform_template)
     
-    # Use regular invoke instead of structured output
     chain = prompt | llm
     response = chain.invoke({"requirements": state.user_requirements})
     
     try:
         # Extract JSON from the response using our helper function
         json_str = extract_json_from_text(response.content)
-        print(f"Extracted JSON string: {json_str}")  # Print first 100 chars for debugging
+        print(f"Extracted JSON string: {json_str}")
         
         # Parse the JSON response
         data = json.loads(json_str)
@@ -180,11 +179,10 @@ terraform_app = graph.compile()
 # Function to save generated Terraform files
 def save_terraform_files(state: TerraformState, base_dir: str = "output/src"):
     """Save the generated Terraform files to disk."""
-    # Create base directory
+    
     os.makedirs(base_dir, exist_ok=True)
     
     for env in state["environments"].environments:
-        print(f"Environment: {env}")
         
         env_dir = os.path.join(base_dir, "environments", env.name)
         os.makedirs(env_dir, exist_ok=True)
@@ -199,7 +197,7 @@ def save_terraform_files(state: TerraformState, base_dir: str = "output/src"):
             f.write(env.variables_tf)
     
     for module in state["modules"].modules:
-        print(f"Module: {module}")
+       
         module_dir = os.path.join(base_dir, "modules", module.name)
         os.makedirs(module_dir, exist_ok=True)
         
