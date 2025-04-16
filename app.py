@@ -1,5 +1,6 @@
 from langgraph.graph import StateGraph, START, END
 from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 import os
 from dotenv import load_dotenv
@@ -18,7 +19,7 @@ api_key = os.environ["GROQ_API_KEY"]
 model = "llama3-70b-8192"
 
 sanitized_api_key = sanitize_ascii(api_key)
-llm = ChatGroq(api_key=sanitized_api_key, model=model)
+llm = ChatGoogleGenerativeAI(api_key=sanitized_api_key, model=model)
 
 class TerraformFile(BaseModel):
     path: str
@@ -41,10 +42,13 @@ class TerraformState(BaseModel):
     modules: ModuleList = Field(default_factory=ModuleList)
     environments: EnvironmentList = Field(default_factory=EnvironmentList)
     user_requirements: str = ""
+    
 
 # Prompt template
 terraform_template = """
-You are a senior AWS Solutions Architect and Terraform Expert responsible for creating enterprise-grade, production-ready infrastructure as code. Your task is to generate complete, executable Terraform code that follows HashiCorp's recommended practices and AWS Well-Architected Framework principles.
+You are a senior AWS Solutions Architect and Terraform Expert responsible for creating enterprise-grade, 
+production-ready infrastructure as code. Your task is to generate complete, 
+executable Terraform code that follows HashiCorp's recommended practices and AWS Well-Architected Framework principles.
 
 Requirements: {requirements}
 
