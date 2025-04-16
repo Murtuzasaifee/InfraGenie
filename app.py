@@ -44,37 +44,60 @@ class TerraformState(BaseModel):
 
 # Define the template with a simple prompt approach
 terraform_template = """
-You are a Terraform Expert. Based on the user's requirements, generate Terraform code for AWS Cloud infrastructure.
+You are a Terraform Expert who writes production-grade, syntactically valid, and best-practice Terraform code for AWS. Based on the user's requirements provided below, generate complete Terraform code for AWS infrastructure. Make sure to include all necessary provider blocks, resource definitions, variable declarations, and outputs. The generated code should be executable with Terraform and follow HCL syntax.
 
 Requirements: {requirements}
 
-Generate Terraform code for the following:
+Instructions:
+1. Generate code for three environments: dev, stage, and prod. For each environment, create:
+   - A main.tf that includes the AWS provider configuration and resource definitions (e.g., VPC, subnets, security groups).
+   - An output.tf that defines outputs for resource identifiers.
+   - A variables.tf that declares any required variables.
+2. Generate code for infrastructure modules. For example, create a "vpc-module" that includes:
+   - A main.tf with resource definitions for a VPC.
+   - An output.tf to output the VPC ID.
+   - A variables.tf with variable declarations (e.g., for CIDR blocks).
+3. Use proper resource naming conventions, include realistic values and valid HCL code. Do not use generic placeholders like "..."—include sample configurations that satisfy the requirement.
+4. Ensure the AWS provider is configured correctly with at least a region setting.
+5. Echo the user requirements in the final JSON output.
 
-1. Create three environments: dev, stage, and prod
-2. Create necessary infrastructure modules
-
-Format your answer as valid JSON with the following structure:
+Return your answer as a valid JSON object with the exact following structure and no additional text:
 
 {{
   "environments": [
     {{
       "name": "dev",
-      "main_tf": "provider \\"aws\\" {{ ... }}",
-      "output_tf": "output \\"vpc_id\\" {{ ... }}",
-      "variables_tf": "variable \\"region\\" {{ ... }}"
+      "main_tf": "[Terraform code for dev main.tf]",
+      "output_tf": "[Terraform code for dev output.tf]",
+      "variables_tf": "[Terraform code for dev variables.tf]"
+    }},
+    {{
+      "name": "stage",
+      "main_tf": "[Terraform code for stage main.tf]",
+      "output_tf": "[Terraform code for stage output.tf]",
+      "variables_tf": "[Terraform code for stage variables.tf]"
+    }},
+    {{
+      "name": "prod",
+      "main_tf": "[Terraform code for prod main.tf]",
+      "output_tf": "[Terraform code for prod output.tf]",
+      "variables_tf": "[Terraform code for prod variables.tf]"
     }}
   ],
   "modules": [
     {{
       "name": "vpc-module",
-      "main_tf": "resource \\"aws_vpc\\" {{ ... }}",
-      "output_tf": "output \\"vpc_id\\" {{ ... }}",
-      "variables_tf": "variable \\"cidr_block\\" {{ ... }}"
+      "main_tf": "[Terraform code for vpc module main.tf]",
+      "output_tf": "[Terraform code for vpc module output.tf]",
+      "variables_tf": "[Terraform code for vpc module variables.tf]"
     }}
-  ]
+  ],
+  "user_requirements": "{requirements}"
 }}
 
-IMPORTANT: Only provide a valid JSON response, with no additional text or explanations. Ensure that your response can be parsed directly by json.loads().
+IMPORTANT:
+- Only output valid JSON that exactly follows the schema above. Do not include any additional text, markdown formatting, or code block markers.
+- Ensure that all Terraform code is syntactically valid and could be used in a Terraform project with minimal modifications.
 """
 
 def process_request(state: TerraformState):
