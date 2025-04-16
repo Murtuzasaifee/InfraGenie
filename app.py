@@ -42,62 +42,91 @@ class TerraformState(BaseModel):
     environments: EnvironmentList = Field(default_factory=EnvironmentList)
     user_requirements: str = ""
 
-# Define the template
+# Prompt template
 terraform_template = """
-You are a Terraform Expert who writes production-grade, syntactically valid, and best-practice Terraform code for AWS. Based on the user's requirements provided below, generate complete Terraform code for AWS infrastructure. Make sure to include all necessary provider blocks, resource definitions, variable declarations, and outputs. The generated code should be executable with Terraform and follow HCL syntax.
+You are a senior AWS Solutions Architect and Terraform Expert responsible for creating enterprise-grade, production-ready infrastructure as code. Your task is to generate complete, executable Terraform code that follows HashiCorp's recommended practices and AWS Well-Architected Framework principles.
 
 Requirements: {requirements}
 
-Instructions:
-1. Generate code for three environments: dev, stage, and prod. For each environment, create:
-   - A main.tf that includes the AWS provider configuration and resource definitions (e.g., VPC, subnets, security groups).
-   - An output.tf that defines outputs for resource identifiers.
-   - A variables.tf that declares any required variables.
-2. Generate code for infrastructure modules. For example, create a "vpc-module" that includes:
-   - A main.tf with resource definitions for a VPC.
-   - An output.tf to output the VPC ID.
-   - A variables.tf with variable declarations (e.g., for CIDR blocks).
-3. Use proper resource naming conventions, include realistic values and valid HCL code. Do not use generic placeholders like "..."—include sample configurations that satisfy the requirement.
-4. Ensure the AWS provider is configured correctly with at least a region setting.
-5. Echo the user requirements in the final JSON output.
+SPECIFICATIONS:
+1. ARCHITECTURE:
+   - Follow a modular design pattern with reusable components
+   - Implement proper networking segregation with public/private subnets
+   - Include appropriate security controls (NACLs, Security Groups)
+   - Design for high availability across multiple AZs
+   - Implement proper tagging strategy (environment, owner, cost center)
 
-Return your answer as a valid JSON object with the exact following structure and no additional text:
+2. CODE QUALITY REQUIREMENTS:
+   - Use proper Terraform state management with remote state configuration
+   - Implement conditional logic for environment-specific configurations
+   - Add descriptive comments explaining key design decisions
+   - Use proper variable typing and constraints
+   - Implement input validation for critical variables
+   - Use locals for repeated or computed values
+   - Follow proper naming conventions (snake_case)
+   - Include proper error handling and lifecycle management
+
+3. SECURITY REQUIREMENTS:
+   - Implement least privilege IAM policies
+   - Enable proper encryption for data at rest and in transit
+   - Configure security groups with specific CIDR blocks (no 0.0.0.0/0 except for public-facing LBs)
+   - Set up proper logging and auditing
+   - Include security headers and best practices
+
+Generate Terraform code for three environments:
+- dev: lower capacity, minimal redundancy
+- stage: medium capacity, good redundancy
+- prod: high capacity, maximum redundancy and proper auto-scaling
+
+IMPORTANT IMPLEMENTATION DETAILS:
+- Use Terraform AWS provider version 5.0.0 or later
+- Include proper provider configuration with version constraints
+- Define data sources for dynamic lookup of AMIs, AZs, etc.
+- Use count or for_each for resource repetition
+- Include proper error handling with preconditions/postconditions
+- Set up proper dependency management
+
+Return your answer as a valid JSON object with the following structure and no additional text:
 
 {{
   "environments": [
     {{
       "name": "dev",
-      "main_tf": "[Terraform code for dev main.tf]",
-      "output_tf": "[Terraform code for dev output.tf]",
-      "variables_tf": "[Terraform code for dev variables.tf]"
+      "main_tf": "[Complete Terraform code for dev main.tf]",
+      "output_tf": "[Complete Terraform code for dev output.tf]",
+      "variables_tf": "[Complete Terraform code for dev variables.tf]"
     }},
     {{
       "name": "stage",
-      "main_tf": "[Terraform code for stage main.tf]",
-      "output_tf": "[Terraform code for stage output.tf]",
-      "variables_tf": "[Terraform code for stage variables.tf]"
+      "main_tf": "[Complete Terraform code for stage main.tf]",
+      "output_tf": "[Complete Terraform code for stage output.tf]",
+      "variables_tf": "[Complete Terraform code for stage variables.tf]"
     }},
     {{
       "name": "prod",
-      "main_tf": "[Terraform code for prod main.tf]",
-      "output_tf": "[Terraform code for prod output.tf]",
-      "variables_tf": "[Terraform code for prod variables.tf]"
+      "main_tf": "[Complete Terraform code for prod main.tf]",
+      "output_tf": "[Complete Terraform code for prod output.tf]",
+      "variables_tf": "[Complete Terraform code for prod variables.tf]"
     }}
   ],
   "modules": [
     {{
       "name": "vpc-module",
-      "main_tf": "[Terraform code for vpc module main.tf]",
-      "output_tf": "[Terraform code for vpc module output.tf]",
-      "variables_tf": "[Terraform code for vpc module variables.tf]"
+      "main_tf": "[Complete Terraform code for vpc module main.tf]",
+      "output_tf": "[Complete Terraform code for vpc module output.tf]",
+      "variables_tf": "[Complete Terraform code for vpc module variables.tf]"
+    }},
+    {{
+      "name": "security-module",
+      "main_tf": "[Complete Terraform code for security module main.tf]",
+      "output_tf": "[Complete Terraform code for security module output.tf]",
+      "variables_tf": "[Complete Terraform code for security module variables.tf]"
     }}
   ],
   "user_requirements": "{requirements}"
 }}
 
-IMPORTANT:
-- Only output valid JSON that exactly follows the schema above. Do not include any additional text, markdown formatting, or code block markers.
-- Ensure that all Terraform code is syntactically valid and could be used in a Terraform project with minimal modifications.
+Your code must be directly deployable to AWS without modifications. Avoid using placeholders or TODOs - provide working values for all required fields. Include proper module references and dependency management.
 """
 
 def process_request(state: TerraformState):
