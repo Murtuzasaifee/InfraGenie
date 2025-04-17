@@ -15,8 +15,8 @@ def sanitize_ascii(s: str) -> str:
     # Remove any non-ASCII characters from the string
     return ''.join(c for c in s if ord(c) < 128)
 
-api_key = os.environ["GROQ_API_KEY"]
-model = "llama3-70b-8192"
+api_key = os.environ["GEMINI_API_KEY"]
+model = "gemini-2.0-flash"
 
 sanitized_api_key = sanitize_ascii(api_key)
 llm = ChatGoogleGenerativeAI(api_key=sanitized_api_key, model=model)
@@ -42,7 +42,16 @@ class TerraformState(BaseModel):
     modules: ModuleList = Field(default_factory=ModuleList)
     environments: EnvironmentList = Field(default_factory=EnvironmentList)
     user_requirements: str = ""
-    
+
+class CustomEncoder(json.JSONEncoder):
+    def default(self, obj):
+        # Check if the object is any kind of Pydantic model
+        if isinstance(obj, BaseModel):
+            return obj.model_dump()
+        # Or check for specific classes if needed
+        # if isinstance(obj, UserStories) or isinstance(obj, DesignDocument):
+        #     return obj.model_dump()
+        return super().default(obj)
 
 # Prompt template
 terraform_template = """
@@ -212,6 +221,9 @@ terraform_app = graph.compile()
 # Function to save generated Terraform files
 def save_terraform_files(state: TerraformState, base_dir: str = "output/src"):
     """Save the generated Terraform files to disk."""
+    
+    state_str = json.dumps(state, cls=CustomEncoder)
+    print(f"State: {state_str}")
     
     os.makedirs(base_dir, exist_ok=True)
     
