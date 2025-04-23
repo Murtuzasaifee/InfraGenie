@@ -1,5 +1,7 @@
+from src.infra_genie.ui.streamlit_ui.streamlit_app import load_app
+
 def main():
-    print("Hello from infragenie!")
+   load_app()
 
 
 if __name__ == "__main__":

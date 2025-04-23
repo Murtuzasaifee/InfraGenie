@@ -12,7 +12,7 @@ class GraphExecutor:
         return {"configurable": {"thread_id": task_id}}
     
     ## ------- Start the Workflow ------- ##
-    def start_workflow(self):
+    def start_workflow(self, project_name: str):
         
         graph = self.graph
         
@@ -24,7 +24,7 @@ class GraphExecutor:
         thread = self.get_thread(task_id)
         
         state = None
-        for event in graph.stream(None,thread, stream_mode="values"):
+        for event in graph.stream({"project_name": project_name},thread, stream_mode="values"):
            state = event
         
         current_state = graph.get_state(thread)

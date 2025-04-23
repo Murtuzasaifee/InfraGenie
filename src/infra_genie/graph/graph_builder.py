@@ -6,7 +6,8 @@ from src.infra_genie.state.infra_genie_state import InfraGenieState
     
 class GraphBuilder:
     
-    def __init__(self):
+    def __init__(self, llm):
+        self.llm = llm
         self.graph_builder = StateGraph(InfraGenieState)
         self.memory = MemorySaver()
                 
@@ -14,13 +15,16 @@ class GraphBuilder:
     def set_groq_llm(self, groq_llm):
         self.groq_llm = groq_llm
     
-    
+
     def set_gemini_llm(self, gemini_llm):
         self.gemini_llm = gemini_llm
         
         
     def set_openai_llm(self, openai_llm):
         self.openai_llm = openai_llm
+        
+    def set_mistral_llm(self, mistral_llm):
+        self.mistral_llm = mistral_llm
     
     
     def build_sdlc_graph(self):
