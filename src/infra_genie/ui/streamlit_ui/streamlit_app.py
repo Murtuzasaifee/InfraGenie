@@ -104,6 +104,38 @@ def load_streamlit_ui(config: Config):
 
 def load_user_input_ui():
     
+    # Sample test data to pre-fill the form
+    test_input = {
+        "services": ["ec2", "lambda"],
+        "region": "us-west-1",
+        "vpc_cidr": "10.0.0.0/16",
+        "subnet_configuration": {
+            "public": ["10.0.1.24/16", "10.0.2.24/16"],
+            "private": ["10.0.3.0/24", "10.0.4.0/24"],
+            "database": ["10.0.5.0/24", "10.0.6.24/16"]
+        },
+        "availability_zones": ["us-west-1a", "us-west-1b"],
+        "compute_type": "ec2",
+        "database_type": "rds",
+        "is_multi_az": True,
+        "is_serverless": False,
+        "enable_logging": True,
+        "enable_monitoring": True,
+        "load_balancer_type": "ALB",
+        "enable_waf": True,
+        "tags": {
+            "Environment": "dev",
+            "ManagedBy": "Terraform",
+            "Owner": "DevOps"
+        },
+        "requirements": "",
+        "custom_parameters": {}
+    }
+    if st.checkbox("Enable Test Mode", value=True):
+        test_mode = True
+    else:
+        test_mode = False
+
     st.subheader("Basic Configuration")
     
     # Resolve the JSON path relative to the current file
@@ -116,20 +148,39 @@ def load_user_input_ui():
     aws_services_list = aws_services.get("services", [])
     database_services = aws_services.get("database", [])
 
-    selected_services = st.multiselect("Select AWS Services", aws_services_list)
+    selected_services = st.multiselect(
+    "Select AWS Services",
+    aws_services_list,
+    default=test_input["services"] if test_mode else []
+    )
     
-    region = st.text_input("AWS Region", 
-                           placeholder="e.g., us-west-1")
-    vpc_cidr = st.text_input("VPC CIDR Block", 
-                             placeholder="e.g., 10.0.0.0/16")
+    region = st.text_input(
+        "AWS Region",
+        value=test_input["region"] if test_mode else "",
+        placeholder="e.g., us-west-1"
+    )
+    vpc_cidr = st.text_input(
+        "VPC CIDR Block",
+        value=test_input["vpc_cidr"] if test_mode else "",
+        placeholder="e.g., 10.0.0.0/16"
+    )
 
     st.subheader("Subnet Configuration")
-    public_subnets = st.text_area("Public Subnet CIDRs (comma-separated)", 
-                                   placeholder="e.g., 10.0.1.0/24, 10.0.2.0/24")
-    private_subnets = st.text_area("Private Subnet CIDRs (comma-separated)", 
-                                   placeholder="e.g., 10.0.3.0/24, 10.0.4.0/24")
-    database_subnets = st.text_area("Database Subnet CIDRs (comma-separated)", 
-                                    placeholder="e.g., 10.0.5.0/24, 10.0.6.0/24")
+    public_subnets = st.text_area(
+        "Public Subnet CIDRs (comma-separated)",
+        value=", ".join(test_input["subnet_configuration"]["public"]) if test_mode else "",
+        placeholder="e.g., 10.0.1.0/24, 10.0.2.0/24"
+    )
+    private_subnets = st.text_area(
+        "Private Subnet CIDRs (comma-separated)",
+        value=", ".join(test_input["subnet_configuration"]["private"]) if test_mode else "",
+        placeholder="e.g., 10.0.3.0/24, 10.0.4.0/24"
+    )
+    database_subnets = st.text_area(
+        "Database Subnet CIDRs (comma-separated)",
+        value=", ".join(test_input["subnet_configuration"]["database"]) if test_mode else "",
+        placeholder="e.g., 10.0.5.0/24, 10.0.6.0/24"
+    )
 
     subnet_configuration = {
         "public": [s.strip() for s in public_subnets.split(",") if s.strip()],
@@ -137,35 +188,57 @@ def load_user_input_ui():
         "database": [s.strip() for s in database_subnets.split(",") if s.strip()],
     }
 
-    availability_zones = st.text_input("Availability Zones (comma-separated)", 
-                                       placeholder="e.g., us-west-2a, us-west-2b")
+    availability_zones = st.text_input(
+        "Availability Zones (comma-separated)",
+        value=", ".join(test_input["availability_zones"]) if test_mode else "",
+        placeholder="e.g., us-west-1a, us-west-1b"
+    )
     availability_zones_list = [az.strip() for az in availability_zones.split(",") if az.strip()]
 
-    compute_type = st.selectbox("Compute Type", ["","ec2", "fargate"])
-    database_type = st.selectbox("Select Database Type", [""] + database_services)
-    is_multi_az = st.checkbox("Enable Multi-AZ", value=True)
-    is_serverless = st.checkbox("Use Serverless Architecture", value=False)
-    enable_logging = st.checkbox("Enable CloudWatch Logging", value=True)
-    enable_monitoring = st.checkbox("Enable Monitoring", value=True)
+    compute_type = st.selectbox(
+        "Compute Type",
+        ["", "ec2", "fargate"],
+        index=["", "ec2", "fargate"].index(test_input["compute_type"]) if test_mode else 0
+    )
+    database_type = st.selectbox(
+        "Select Database Type",
+        [""] + database_services,
+        index=([""] + database_services).index(test_input["database_type"]) if test_mode and test_input["database_type"] in database_services else 0
+    )
+    is_multi_az = st.checkbox("Enable Multi-AZ", value=test_input["is_multi_az"] if test_mode else True)
+    is_serverless = st.checkbox("Use Serverless Architecture", value=test_input["is_serverless"] if test_mode else False)
+    enable_logging = st.checkbox("Enable CloudWatch Logging", value=test_input["enable_logging"] if test_mode else True)
+    enable_monitoring = st.checkbox("Enable Monitoring", value=test_input["enable_monitoring"] if test_mode else True)
 
-    load_balancer_type = st.selectbox("Load Balancer Type", ["", "ALB", "NLB", "CLB"])
-    enable_waf = st.checkbox("Enable AWS WAF", value=False)
+    load_balancer_type = st.selectbox(
+        "Load Balancer Type",
+        ["", "ALB", "NLB", "CLB"],
+        index=["", "ALB", "NLB", "CLB"].index(test_input["load_balancer_type"]) if test_mode else 0
+    )
+    enable_waf = st.checkbox("Enable AWS WAF", value=test_input["enable_waf"] if test_mode else False)
 
     st.subheader("Tags")
-    environment = st.text_input("Environment", "dev")
-    managed_by = st.text_input("Managed By", "Terraform")
-    owner = st.text_input("Owner", "DevOps")
+    environment = st.text_input("Environment", value=test_input["tags"]["Environment"] if test_mode else "dev")
+    managed_by = st.text_input("Managed By", value=test_input["tags"]["ManagedBy"] if test_mode else "Terraform")
+    owner = st.text_input("Owner", value=test_input["tags"]["Owner"] if test_mode else "DevOps")
     tags = {
         "Environment": environment,
         "ManagedBy": managed_by,
         "Owner": owner
     }
 
-    requirements = st.text_area("Additional Requirements", 
-                                placeholder="Enter any specific requirements here.")
+    requirements = st.text_area(
+        "Additional Requirements",
+        value=test_input["requirements"] if test_mode else "",
+        placeholder="Enter any specific requirements here."
+    )
 
     st.subheader("Advanced Configuration")
-    custom_parameters_raw = st.text_area("Custom Parameters (JSON format)", "{}")
+    custom_parameters_raw = st.text_area(
+        "Custom Parameters (JSON format)",
+        value=json.dumps(test_input["custom_parameters"], indent=2) if test_mode else "{}"
+    )
+
     
     try:
         custom_parameters = json.loads(custom_parameters_raw)
