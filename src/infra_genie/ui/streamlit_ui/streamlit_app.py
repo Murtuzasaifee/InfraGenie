@@ -131,12 +131,13 @@ def load_user_input_ui():
         "requirements": "",
         "custom_parameters": {}
     }
+
+    st.subheader("Basic Configuration")
+    
     if st.checkbox("Enable Test Mode", value=True):
         test_mode = True
     else:
         test_mode = False
-
-    st.subheader("Basic Configuration")
     
     # Resolve the JSON path relative to the current file
     json_path = Path(__file__).resolve().parents[2] / "data" / "aws_services.json"
@@ -148,6 +149,12 @@ def load_user_input_ui():
     aws_services_list = aws_services.get("services", [])
     database_services = aws_services.get("database", [])
 
+    requirements = st.text_area(
+        "Application Requirements",
+        value=test_input["requirements"] if test_mode else "",
+        placeholder="Enter your application requirements here."
+    )
+    
     selected_services = st.multiselect(
     "Select AWS Services",
     aws_services_list,
@@ -226,12 +233,6 @@ def load_user_input_ui():
         "ManagedBy": managed_by,
         "Owner": owner
     }
-
-    requirements = st.text_area(
-        "Additional Requirements",
-        value=test_input["requirements"] if test_mode else "",
-        placeholder="Enter any specific requirements here."
-    )
 
     st.subheader("Advanced Configuration")
     custom_parameters_raw = st.text_area(
