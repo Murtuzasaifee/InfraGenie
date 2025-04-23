@@ -1,0 +1,18 @@
+{
+    "services": [
+      "ec2", "lambda", "autoscaling", "eks", "ecs", "batch", "lightsail", "outposts",
+      "s3", "efs", "fsx", "glacier", "backup", "storagegateway",
+      "vpc", "route53", "apigateway", "cloudfront", "elb", "alb", "nlb", "globalaccelerator",
+      "iam", "kms", "wafv2", "shield", "guardduty", "macie", "inspector", "secretsmanager", "certificatemanager",
+      "cloudwatch", "cloudtrail", "xray", "config", "health", "trustedadvisor",
+      "athena", "glue", "emr", "kinesis", "quicksight", "datapipeline",
+      "codecommit", "codepipeline", "codedeploy", "codebuild", "cloudformation", "systemsmanager",
+      "sagemaker", "comprehend", "rekognition", "textract", "translate", "polly", "forecast",
+      "sns", "sqs", "eventbridge", "ses",
+      "opensearch", "cloudsearch",
+      "mobilehub", "iotcore", "appsync", "stepfunctions", "appmesh"
+    ],
+    "database": [
+      "rds", "dynamodb", "redshift", "neptune", "documentdb", "keyspaces", "memorydb"
+    ]
+  }

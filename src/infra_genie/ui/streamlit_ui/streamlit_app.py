@@ -10,6 +10,7 @@ from src.infra_genie.graph.graph_executor import GraphExecutor
 import os
 from loguru import logger
 import json
+from pathlib import Path
 from src.infra_genie.state.infra_genie_state import UserInput
 
 def initialize_session():
@@ -102,8 +103,21 @@ def load_streamlit_ui(config: Config):
     return user_controls
 
 def load_user_input_ui():
+    
     st.subheader("Basic Configuration")
-    services = st.multiselect("Select AWS Services", ["ec2", "s3", "rds", "lambda"])
+    
+    # Resolve the JSON path relative to the current file
+    json_path = Path(__file__).resolve().parents[2] / "data" / "aws_services.json"
+
+    # Load the JSON file
+    with open(json_path, "r") as f:
+        aws_services = json.load(f)
+    
+    aws_services_list = aws_services.get("services", [])
+    database_services = aws_services.get("database", [])
+
+    selected_services = st.multiselect("Select AWS Services", aws_services_list)
+    
     region = st.text_input("AWS Region", 
                            placeholder="e.g., us-west-1")
     vpc_cidr = st.text_input("VPC CIDR Block", 
@@ -128,8 +142,7 @@ def load_user_input_ui():
     availability_zones_list = [az.strip() for az in availability_zones.split(",") if az.strip()]
 
     compute_type = st.selectbox("Compute Type", ["","ec2", "fargate"])
-    database_type = st.selectbox("Database Type", ["", "mysql", "postgres", "dynamodb"])
-
+    database_type = st.selectbox("Select Database Type", [""] + database_services)
     is_multi_az = st.checkbox("Enable Multi-AZ", value=True)
     is_serverless = st.checkbox("Use Serverless Architecture", value=False)
     enable_logging = st.checkbox("Enable CloudWatch Logging", value=True)
@@ -161,7 +174,7 @@ def load_user_input_ui():
         custom_parameters = {}
     
     st.session_state.form_data = {
-        "services": services,
+        "services": selected_services,
         "region": region,
         "vpc_cidr": vpc_cidr,
         "subnet_configuration": subnet_configuration,
@@ -249,6 +262,8 @@ def load_app():
                 load_user_input_ui()
                 
                 if st.button("Submit Requirements"):
+                    logger.info("Submit button clicked")
+                    
                     user_input = UserInput(**st.session_state.form_data)
                     st.session_state.state["user_input"] = user_input
                     st.json(user_input)
