@@ -125,7 +125,6 @@ class InfraGenieState(BaseModel):
     
     project_name: str
     next_node: str = const.PROJECT_INITILIZATION
-    current_node: str = const.PROJECT_INITILIZATION
     modules: ModuleList = Field(default_factory=ModuleList)
     environments: EnvironmentList = Field(default_factory=EnvironmentList)
     user_input: Optional[UserInput] = None

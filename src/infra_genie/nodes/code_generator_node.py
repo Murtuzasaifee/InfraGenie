@@ -4,36 +4,54 @@ import json
 from loguru import logger
 from src.infra_genie.state.infra_genie_state import InfraGenieState, TerraformOutput, TerraformComponent, UserInput
 from langchain_core.prompts import PromptTemplate
+from src.infra_genie.cache.redis_cache import flush_redis_cache, save_state_to_redis, get_state_from_redis
+from src.infra_genie.utils import constants as const
     
 
-class ResumeProcessor:
+class CodeGeneratorNode:
     
     def __init__(self, llm):
         self.llm = llm
        
-        
+    def initialize_project(self, state: InfraGenieState):
+        """
+            Performs the project initilazation
+        """
+        state.next_node = const.REQUIREMENT_COLLECTION
+        return state
+    
+    def get_user_requirements(self, state: InfraGenieState):
+        """
+            Gets the requirements from the user
+        """
+        state.next_node = const.GENERATE_CODE
+        return state
+    
     def generate_terraform_code(self, state: InfraGenieState):
         
         """
         Generate Terraform code with structured output.
         
         """
-    
+
         if not state.user_input:
             raise ValueError("User input is required to generate Terraform code")
         
         try:
             print("Trying structured output approach...")
-            formatted_prompt = self.get_formatted_prompt(state.user_input)
-            logger.debug(f"User Input: {state.user_input}")
-            logger.debug(f"Formatted Prompt: {formatted_prompt}")
+                    
+            prompt_template = self.get_terraform_code_prompt()
+            logger.debug(f"Prompt Template: {prompt_template}")
             
-            structured_prompt = PromptTemplate.from_template(formatted_prompt)
+            structured_prompt = PromptTemplate.from_template(prompt_template)
             
+            input_dict = state.user_input.model_dump()
+            logger.debug(f"User Input: {input_dict}")
+
             structured_llm = self.llm.with_structured_output(TerraformOutput)
             structured_chain = structured_prompt | structured_llm
-            
-            result = structured_chain.invoke(state.user_input)
+
+            result = structured_chain.invoke(input_dict)
             
             # Transfer the structured result to the state
             for env in result.environments:
@@ -54,20 +72,22 @@ class ResumeProcessor:
             
             print(f"Successfully generated {len(state.environments.environments)} environments and {len(state.modules.modules)} modules using structured output")
             state.code_generated = True
+            state.next_node = const.CODE_VALIDATION
             
         except Exception as primary_error:
             print(f"Structured output approach failed: {primary_error}")
             state.code_generated = False
+            state.next_node = const.FALLBACK_GENERATION
         
         return state
     
     def get_formatted_prompt(self, user_input: UserInput) -> str:
         return self.get_terraform_code_prompt().format(
-            requirements=user_input.requirements,
+            requirements=user_input.requirements or "None",
             services=", ".join(user_input.services),
             region=user_input.region,
             vpc_cidr=user_input.vpc_cidr,
-            subnet_configuration=json.dumps(user_input.subnet_configuration, indent=2),
+            subnet_configuration=json.dumps(user_input.subnet_configuration, indent=2).replace("{", "{{").replace("}", "}}"),
             availability_zones=", ".join(user_input.availability_zones),
             compute_type=user_input.compute_type,
             database_type=user_input.database_type or "None",
@@ -78,7 +98,7 @@ class ResumeProcessor:
             enable_monitoring="Yes" if user_input.enable_monitoring else "No",
             enable_waf="Yes" if user_input.enable_waf else "No",
             tags=", ".join([f"{k}={v}" for k, v in user_input.tags.items()]),
-            custom_parameters=json.dumps(user_input.custom_parameters, indent=2) if user_input.custom_parameters else "None"
+            custom_parameters=json.dumps(user_input.custom_parameters, indent=2).replace("{", "{{").replace("}", "}}") if user_input.custom_parameters else "None"
         )
     
     def get_terraform_code_prompt(self) -> str:

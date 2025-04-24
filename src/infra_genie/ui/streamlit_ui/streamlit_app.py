@@ -320,6 +320,9 @@ def load_app():
 
             if st.session_state.stage == const.PROJECT_INITILIZATION:
                 if st.button("🚀 Let's Start"):
+                    
+                    logger.info("Initiating the prcess")
+                    
                     if not project_name:
                         st.error("Please enter a project name.")
                         st.stop()
@@ -330,7 +333,7 @@ def load_app():
                     st.session_state.stage = const.REQUIREMENT_COLLECTION
                     st.rerun()
 
-            # If stage has progressed beyond initialization, show requirements input and details.
+            # If stage has progressed beyond initialization, show requirements input and got to next stage
             if st.session_state.stage in [const.REQUIREMENT_COLLECTION]:
                
                 load_user_input_ui()
@@ -342,6 +345,12 @@ def load_app():
                     st.session_state.state["user_input"] = user_input
                     st.json(user_input)
                     st.success("User requirements submitted successfully!")
+                    
+                    graph_response = graph_executor.generate_code(st.session_state.task_id, user_input)
+                    st.session_state.state = graph_response["state"]
+                    
+                    st.session_state.stage = const.GENERATE_CODE
+                    # st.rerun()
                         
 
         # ---------------- Tab 2: Code Generation ----------------

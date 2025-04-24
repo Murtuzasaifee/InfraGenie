@@ -1,4 +1,4 @@
-from src.infra_genie.state.infra_genie_state import InfraGenieState
+from src.infra_genie.state.infra_genie_state import InfraGenieState, UserInput
 from src.infra_genie.cache.redis_cache import flush_redis_cache, save_state_to_redis, get_state_from_redis
 import uuid
 import src.infra_genie.utils.constants as const
@@ -32,6 +32,17 @@ class GraphExecutor:
         
         return {"task_id" : task_id, "state": state}
     
+    
+    ## ------- Code Generation ------- ##
+    def generate_code(self, task_id:str, user_input : UserInput):
+        
+        saved_state = get_state_from_redis(task_id)
+        if saved_state:
+            saved_state.user_input = user_input
+            saved_state.next_node = const.GENERATE_CODE
+        
+        return self.update_and_resume_graph(saved_state,task_id,"get_user_requirements")
+    
    
     ## -------- Helper Method to handle the graph resume state ------- ##
     def update_and_resume_graph(self, saved_state,task_id, as_node):
@@ -46,7 +57,6 @@ class GraphExecutor:
             logger.debug(f"Event Received: {event}")
             state = event
         
-        # saving the state before asking the product owner for review
         current_state = graph.get_state(thread)
         save_state_to_redis(task_id, current_state)
         

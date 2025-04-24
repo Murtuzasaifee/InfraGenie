@@ -2,6 +2,7 @@ from langgraph.graph import StateGraph,START, END
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables.graph import MermaidDrawMethod
 from src.infra_genie.state.infra_genie_state import InfraGenieState
+from src.infra_genie.nodes.code_generator_node import CodeGeneratorNode
 
     
 class GraphBuilder:
@@ -27,12 +28,23 @@ class GraphBuilder:
         self.mistral_llm = mistral_llm
     
     
-    def build_sdlc_graph(self):
+    def build_infra_graph(self):
         """
             Configure the graph by adding nodes, edges
         """
         
-        self.graph_builder.add_edge(START, END)
+        self.code_generation_node = CodeGeneratorNode(self.llm)
+        
+        # Add nodes
+        self.graph_builder.add_node("initialize_project", self.code_generation_node.initialize_project)
+        self.graph_builder.add_node("get_user_requirements", self.code_generation_node.get_user_requirements)
+        self.graph_builder.add_node("generate_terraform_code", self.code_generation_node.generate_terraform_code)
+
+        ## Edges
+        self.graph_builder.add_edge(START,"initialize_project")
+        self.graph_builder.add_edge("initialize_project","get_user_requirements")
+        self.graph_builder.add_edge("get_user_requirements","generate_terraform_code")
+        self.graph_builder.add_edge("generate_terraform_code",END)
     
          
         
@@ -40,9 +52,11 @@ class GraphBuilder:
         """
         Sets up the graph
         """
-        self.build_sdlc_graph()
+        self.build_infra_graph()
         return self.graph_builder.compile(
-            interrupt_before=[],checkpointer=self.memory
+            interrupt_before=[
+                'get_user_requirements'
+                ],checkpointer=self.memory
         )
         
              
@@ -50,7 +64,7 @@ class GraphBuilder:
     #     """
     #     Sets up the graph
     #     """
-    #     self.build_sdlc_graph()
+    #     self.build_infra_graph()
     #     graph =self.graph_builder.compile(
     #         interrupt_before=[
     #             'get_user_requirements',
