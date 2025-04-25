@@ -155,7 +155,7 @@ def load_user_input_ui():
     requirements = st.text_area(
         "Application Requirements",
         value=test_input["requirements"] if test_mode else "",
-        placeholder="Enter your application requirements here."
+        placeholder="Enter your application requirements here. E.g., Create Terraform module for VPC setup on AWS"
     )
     
     selected_services = st.multiselect(
@@ -315,7 +315,7 @@ def load_app():
         # Create a radio button for tab selection instead of tabs
         tab_options = ["Infra Requirement", "Code Generation", "Code Validation", "Download Artifacts"]
         current_tab_index = st.session_state.get("current_tab_index", 0)
-        selected_tab = st.radio("", tab_options, index=current_tab_index, horizontal=True)
+        selected_tab = st.radio("Navigation", tab_options, index=current_tab_index, horizontal=True, label_visibility="collapsed")
         
         # Store the selected tab index in session state
         tab_index = tab_options.index(selected_tab)
