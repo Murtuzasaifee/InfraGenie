@@ -104,7 +104,7 @@ class CodeGeneratorNode:
         5. Set up remote state management with appropriate locking
         6. Include comprehensive tagging strategy 
         7. Implement proper error handling with lifecycle management
-        8. Use proper Terraform AWS provider (version 5.0.0+)
+        8. Use latest Terraform AWS provider
         9. Use data sources for dynamic lookups and proper resource repetition
         10. Put all the network related things under a 'netoworking' module e.g. vpc, subnets, security groups etc.
         

@@ -7,9 +7,11 @@ def main():
    ## Setup logging level
    setup_logging(log_level="DEBUG")
    
-   os.environ["LANGCHAIN_API_KEY"]=os.getenv("LANGCHAIN_API_KEY")
-   os.environ["LANGCHAIN_TRACING_V2"]="true"
-   os.environ["LANGCHAIN_PROJECT"]=os.getenv("LANGCHAIN_PROJECT")
+   load_dotenv()
+   
+   # os.environ["LANGCHAIN_API_KEY"]=os.getenv("LANGCHAIN_API_KEY")
+   # os.environ["LANGCHAIN_TRACING_V2"]="true"
+   # os.environ["LANGCHAIN_PROJECT"]=os.getenv("LANGCHAIN_PROJECT")
    
    load_app()
 

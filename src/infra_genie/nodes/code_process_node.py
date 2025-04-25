@@ -4,6 +4,7 @@ from src.infra_genie.state.infra_genie_state import InfraGenieState, TerraformCo
 from langchain_core.prompts import PromptTemplate
 from src.infra_genie.utils import constants as const
 import os
+import opik
     
 
 class ProcessCodeNode:
@@ -11,7 +12,6 @@ class ProcessCodeNode:
     def __init__(self, llm):
         self.llm = llm
        
-    
     def save_terraform_files(self, state: InfraGenieState):
         
         """Save the generated Terraform files to disk."""

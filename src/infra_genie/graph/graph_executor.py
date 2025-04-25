@@ -3,34 +3,50 @@ from src.infra_genie.cache.redis_cache import flush_redis_cache, save_state_to_r
 import uuid
 import src.infra_genie.utils.constants as const
 from loguru import logger
+from opik.integrations.langchain import OpikTracer
 
 class GraphExecutor:
     def __init__(self, graph):
         self.graph = graph
+        
+        # Create the OpikTracer
+        self.opik_tracer = OpikTracer(graph=graph.get_graph(xray=True))
 
     def get_thread(self, task_id):
         return {"configurable": {"thread_id": task_id}}
     
+    def get_config(self, task_id):
+         ## Define Opik config and thread_id
+        config = {
+            "callbacks": [self.opik_tracer],
+            "configurable": {"thread_id": task_id}
+        }
+
+        return config
+    
     ## ------- Start the Workflow ------- ##
     def start_workflow(self, project_name: str):
-        
         graph = self.graph
-        
+
         flush_redis_cache()
-        
+
         # Generate a unique task id
         task_id = f"ig-session-{uuid.uuid4().hex[:8]}"
-        
+
         thread = self.get_thread(task_id)
-        
+
         state = None
-        for event in graph.stream({"project_name": project_name},thread, stream_mode="values"):
-           state = event
-        
+        for event in graph.stream(
+            {"project_name": project_name},
+            config=self.get_config(task_id),
+            stream_mode="values"
+        ):
+            state = event
+
         current_state = graph.get_state(thread)
         save_state_to_redis(task_id, current_state)
-        
-        return {"task_id" : task_id, "state": state}
+
+        return {"task_id": task_id, "state": state}
     
     
     ## ------- Code Generation ------- ##
@@ -53,7 +69,11 @@ class GraphExecutor:
         
          # Resume the graph
         state = None
-        for event in graph.stream(None, thread, stream_mode="values"):
+        for event in graph.stream(
+            None, 
+            config=self.get_config(task_id),
+            stream_mode="values"
+        ):
             logger.debug(f"Event Received: {event}")
             state = event
         
