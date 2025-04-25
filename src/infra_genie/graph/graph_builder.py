@@ -3,6 +3,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables.graph import MermaidDrawMethod
 from src.infra_genie.state.infra_genie_state import InfraGenieState
 from src.infra_genie.nodes.code_generator_node import CodeGeneratorNode
+from src.infra_genie.nodes.project_node import ProjectNode
 
     
 class GraphBuilder:
@@ -34,10 +35,11 @@ class GraphBuilder:
         """
         
         self.code_generation_node = CodeGeneratorNode(self.llm)
+        self.project_node = ProjectNode(self.llm)
         
         # Add nodes
-        self.graph_builder.add_node("initialize_project", self.code_generation_node.initialize_project)
-        self.graph_builder.add_node("get_user_requirements", self.code_generation_node.get_user_requirements)
+        self.graph_builder.add_node("initialize_project", self.project_node.initialize_project)
+        self.graph_builder.add_node("get_user_requirements", self.project_node.get_user_requirements)
         self.graph_builder.add_node("generate_terraform_code", self.code_generation_node.generate_terraform_code)
 
         ## Edges
