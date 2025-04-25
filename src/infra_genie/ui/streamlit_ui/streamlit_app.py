@@ -268,74 +268,6 @@ def load_user_input_ui():
         "requirements": requirements,
         "custom_parameters": custom_parameters,
     }
-
-def display_requirement_summary():
-    # Display requirements summary for reference
-    if "user_input" in st.session_state.state:
-        with st.expander("Requirements Summary (Click to view)"):
-            user_input = st.session_state.state["user_input"]
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("Basic Configuration")
-                st.write(f"**AWS Region:** {user_input.region}")
-                st.write(f"**VPC CIDR:** {user_input.vpc_cidr}")
-                
-                st.write("**Selected Services:**")
-                for service in user_input.services:
-                    st.write(f"- {service}")
-                
-                st.write(f"**Compute Type:** {user_input.compute_type}")
-                st.write(f"**Database Type:** {user_input.database_type or 'None'}")
-                st.write(f"**Load Balancer Type:** {user_input.load_balancer_type or 'None'}")
-            
-            with col2:
-                st.subheader("Network Configuration")
-                st.write("**Availability Zones:**")
-                for az in user_input.availability_zones:
-                    st.write(f"- {az}")
-                
-                st.write("**Subnet Configuration:**")
-                st.write("Public Subnets:")
-                for subnet in user_input.subnet_configuration["public"]:
-                    st.write(f"- {subnet}")
-                
-                st.write("Private Subnets:")
-                for subnet in user_input.subnet_configuration["private"]:
-                    st.write(f"- {subnet}")
-                
-                st.write("Database Subnets:")
-                for subnet in user_input.subnet_configuration["database"]:
-                    st.write(f"- {subnet}")
-            
-            st.subheader("Features & Options")
-            cols = st.columns(4)
-            with cols[0]:
-                st.write(f"**Multi-AZ:** {'✅ Enabled' if user_input.is_multi_az else '❌ Disabled'}")
-            with cols[1]:
-                st.write(f"**Serverless:** {'✅ Enabled' if user_input.is_serverless else '❌ Disabled'}")
-            with cols[2]:
-                st.write(f"**Logging:** {'✅ Enabled' if user_input.enable_logging else '❌ Disabled'}")
-            with cols[3]:
-                st.write(f"**Monitoring:** {'✅ Enabled' if user_input.enable_monitoring else '❌ Disabled'}")
-            
-            # Additional row if needed
-            cols = st.columns(4)
-            with cols[0]:
-                st.write(f"**WAF:** {'✅ Enabled' if user_input.enable_waf else '❌ Disabled'}")
-            
-            st.subheader("Tags")
-            for key, value in user_input.tags.items():
-                st.write(f"**{key}:** {value}")
-            
-            if user_input.requirements:
-                st.subheader("Requirements")
-                st.write(user_input.requirements)
-            
-            if user_input.custom_parameters:
-                st.subheader("Custom Parameters")
-                st.json(user_input.custom_parameters)
     
 ## Main Entry Point    
 def load_app():
@@ -439,8 +371,6 @@ def load_app():
                 logger.info("Code generation stage reached.")
                 # Show code generation content here
                 st.info("Code is being generated based on your requirements...")
-                
-                # display_requirement_summary() // to show better UI
                 
                 # Display requirements summary for reference
                 if "user_input" in st.session_state.state:

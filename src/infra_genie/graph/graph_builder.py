@@ -3,7 +3,9 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables.graph import MermaidDrawMethod
 from src.infra_genie.state.infra_genie_state import InfraGenieState
 from src.infra_genie.nodes.code_generator_node import CodeGeneratorNode
+from src.infra_genie.nodes.fallback_node import FallbackNode
 from src.infra_genie.nodes.project_node import ProjectNode
+from src.infra_genie.nodes.code_process_node import ProcessCodeNode
 
     
 class GraphBuilder:
@@ -34,52 +36,62 @@ class GraphBuilder:
             Configure the graph by adding nodes, edges
         """
         
-        self.code_generation_node = CodeGeneratorNode(self.llm)
         self.project_node = ProjectNode(self.llm)
+        self.code_generation_node = CodeGeneratorNode(self.llm)
+        self.fallback_node = FallbackNode(self.llm)
+        self.process_code_node = ProcessCodeNode(self.llm)
         
         # Add nodes
         self.graph_builder.add_node("initialize_project", self.project_node.initialize_project)
         self.graph_builder.add_node("get_user_requirements", self.project_node.get_user_requirements)
         self.graph_builder.add_node("generate_terraform_code", self.code_generation_node.generate_terraform_code)
+        self.graph_builder.add_node("fallback_generate_terraform_code", self.fallback_node.fallback_generate_terraform_code)
+        self.graph_builder.add_node("save_code", self.process_code_node.save_terraform_files)
 
         ## Edges
         self.graph_builder.add_edge(START,"initialize_project")
         self.graph_builder.add_edge("initialize_project","get_user_requirements")
         self.graph_builder.add_edge("get_user_requirements","generate_terraform_code")
-        self.graph_builder.add_edge("generate_terraform_code",END)
+        self.graph_builder.add_conditional_edges(
+            "generate_terraform_code",
+            self.code_generation_node.is_code_generated,
+            {True: "save_code", False: "fallback_generate_terraform_code"}
+        )
+        self.graph_builder.add_conditional_edges(
+            "fallback_generate_terraform_code",
+            self.code_generation_node.is_code_generated,
+            {True: "save_code", False: END}
+        )
+        
+        self.graph_builder.add_edge("save_code",END)
+        
     
          
         
-    def setup_graph(self):
-        """
-        Sets up the graph
-        """
-        self.build_infra_graph()
-        return self.graph_builder.compile(
-            interrupt_before=[
-                'get_user_requirements'
-                ],checkpointer=self.memory
-        )
-        
-             
     # def setup_graph(self):
     #     """
     #     Sets up the graph
     #     """
     #     self.build_infra_graph()
-    #     graph =self.graph_builder.compile(
+    #     return self.graph_builder.compile(
     #         interrupt_before=[
-    #             'get_user_requirements',
-    #             'review_user_stories',
-    #             'review_design_documents',
-    #             'code_review',
-    #             'security_review',
-    #             'review_test_cases',
-    #             'qa_review'
-    #         ],checkpointer=self.memory
+    #             'get_user_requirements'
+    #             ],checkpointer=self.memory
     #     )
-    #     self.save_graph_image(graph)         
-    #     return graph
+        
+             
+    def setup_graph(self):
+        """
+        Sets up the graph
+        """
+        self.build_infra_graph()
+        graph =self.graph_builder.compile(
+            interrupt_before=[
+                'get_user_requirements',
+            ],checkpointer=self.memory
+        )
+        self.save_graph_image(graph)         
+        return graph
     
     
     def save_graph_image(self,graph):

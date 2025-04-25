@@ -1,17 +1,15 @@
-from pydantic import BaseModel, Field
-from typing import List
-import json
 from loguru import logger
-from src.infra_genie.state.infra_genie_state import InfraGenieState, TerraformOutput, TerraformComponent, UserInput
+from src.infra_genie.state.infra_genie_state import InfraGenieState, TerraformOutput, TerraformComponent
 from langchain_core.prompts import PromptTemplate
-from src.infra_genie.cache.redis_cache import flush_redis_cache, save_state_to_redis, get_state_from_redis
 from src.infra_genie.utils import constants as const
+from src.infra_genie.utils.Utility import Utility
     
 
 class CodeGeneratorNode:
     
     def __init__(self, llm):
         self.llm = llm
+        self.utility = Utility()
        
     
     def generate_terraform_code(self, state: InfraGenieState):
@@ -25,7 +23,7 @@ class CodeGeneratorNode:
             raise ValueError("User input is required to generate Terraform code")
         
         try:
-            print("Trying structured output approach...")
+            print("Trying fallback approach...")
                     
             prompt_template = self.get_terraform_code_prompt()
             logger.debug(f"Prompt Template: {prompt_template}")
@@ -68,25 +66,6 @@ class CodeGeneratorNode:
         
         return state
     
-    def get_formatted_prompt(self, user_input: UserInput) -> str:
-        return self.get_terraform_code_prompt().format(
-            requirements=user_input.requirements or "None",
-            services=", ".join(user_input.services),
-            region=user_input.region,
-            vpc_cidr=user_input.vpc_cidr,
-            subnet_configuration=json.dumps(user_input.subnet_configuration, indent=2).replace("{", "{{").replace("}", "}}"),
-            availability_zones=", ".join(user_input.availability_zones),
-            compute_type=user_input.compute_type,
-            database_type=user_input.database_type or "None",
-            is_multi_az="Yes" if user_input.is_multi_az else "No",
-            is_serverless="Yes" if user_input.is_serverless else "No",
-            load_balancer_type=user_input.load_balancer_type or "None",
-            enable_logging="Yes" if user_input.enable_logging else "No",
-            enable_monitoring="Yes" if user_input.enable_monitoring else "No",
-            enable_waf="Yes" if user_input.enable_waf else "No",
-            tags=", ".join([f"{k}={v}" for k, v in user_input.tags.items()]),
-            custom_parameters=json.dumps(user_input.custom_parameters, indent=2).replace("{", "{{").replace("}", "}}") if user_input.custom_parameters else "None"
-        )
     
     def get_terraform_code_prompt(self) -> str:
         terraform_prompt = """
@@ -134,3 +113,6 @@ class CodeGeneratorNode:
         
         return terraform_prompt
         
+    def is_code_generated(self, state: InfraGenieState):
+        """Decide whether to use the fallback method based on the code generation status."""
+        return state.code_generated
