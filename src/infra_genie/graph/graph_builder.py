@@ -6,6 +6,7 @@ from src.infra_genie.nodes.code_generator_node import CodeGeneratorNode
 from src.infra_genie.nodes.fallback_node import FallbackNode
 from src.infra_genie.nodes.project_node import ProjectNode
 from src.infra_genie.nodes.code_process_node import ProcessCodeNode
+from src.infra_genie.nodes.code_validator_node import CodeValidatorNode
 
     
 class GraphBuilder:
@@ -40,12 +41,14 @@ class GraphBuilder:
         self.code_generation_node = CodeGeneratorNode(self.llm)
         self.fallback_node = FallbackNode(self.llm)
         self.process_code_node = ProcessCodeNode(self.llm)
+        self.code_validator_node = CodeValidatorNode(self.llm)
         
         # Add nodes
         self.graph_builder.add_node("initialize_project", self.project_node.initialize_project)
         self.graph_builder.add_node("get_user_requirements", self.project_node.get_user_requirements)
         self.graph_builder.add_node("generate_terraform_code", self.code_generation_node.generate_terraform_code)
         self.graph_builder.add_node("fallback_generate_terraform_code", self.fallback_node.fallback_generate_terraform_code)
+        self.graph_builder.add_node("code_validator", self.code_validator_node.validate_terraform_code)
         self.graph_builder.add_node("save_code", self.process_code_node.save_terraform_files)
 
         ## Edges
@@ -55,16 +58,16 @@ class GraphBuilder:
         self.graph_builder.add_conditional_edges(
             "generate_terraform_code",
             self.code_generation_node.is_code_generated,
-            {True: "save_code", False: "fallback_generate_terraform_code"}
+            {True: "code_validator", False: "fallback_generate_terraform_code"}
         )
         self.graph_builder.add_conditional_edges(
             "fallback_generate_terraform_code",
             self.code_generation_node.is_code_generated,
-            {True: "save_code", False: END}
+            {True: "code_validator", False: END}
         )
         
+        self.graph_builder.add_edge("code_validator","save_code")
         self.graph_builder.add_edge("save_code",END)
-        
     
          
         
