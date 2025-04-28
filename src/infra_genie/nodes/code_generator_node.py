@@ -93,8 +93,7 @@ class CodeGeneratorNode:
 
         GENERATE:
         1. Three environment configurations (dev, stage, prod)
-        2. Modules for each AWS service in the service list: {services}
-        3. Also create any other necessary modules as needed based on the requirements: {requirements} if any which is not included in the service list: {services}.
+        2. Modules for each AWS service in the service list: {services} based on the requirements: {requirements}
 
         TERRAFORM BEST PRACTICES TO IMPLEMENT:
         1. Create a modular design with proper service isolation
