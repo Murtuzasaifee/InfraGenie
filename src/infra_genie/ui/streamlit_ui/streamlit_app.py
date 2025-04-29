@@ -3,6 +3,7 @@ from src.infra_genie.LLMS.groqllm import GroqLLM
 from src.infra_genie.LLMS.geminillm import GeminiLLM
 from src.infra_genie.LLMS.openai_llm import OpenAILLM
 from src.infra_genie.LLMS.mistral_llm import MistralLLM
+from src.infra_genie.LLMS.qwen_llm import QwenLLM
 from src.infra_genie.graph.graph_builder import GraphBuilder
 from src.infra_genie.ui.uiconfigfile import Config
 import src.infra_genie.utils.constants as const
@@ -72,7 +73,7 @@ def load_sidebar_ui(config: Config):
             if not user_controls["GEMINI_API_KEY"]:
                 st.warning("⚠️ Please enter your GEMINI API key to proceed. Don't have? refer : https://ai.google.dev/gemini-api/docs/api-key ")
                 
-                
+        
         if user_controls["selected_llm"] == 'OpenAI':
             # Model selection
             model_options = config.get_openai_model_options()
@@ -84,6 +85,19 @@ def load_sidebar_ui(config: Config):
             # Validate API key
             if not user_controls["OPENAI_API_KEY"]:
                 st.warning("⚠️ Please enter your OPENAI API key to proceed. Don't have? refer : https://platform.openai.com/api-keys ")
+        
+                
+        if user_controls["selected_llm"] == 'Qwen':
+            # Model selection
+            model_options = config.get_qwen_model_options()
+            user_controls["selected_qwen_model"] = st.selectbox("Select Model", model_options)
+            # API key input
+            os.environ["QWEN_API_KEY"] = user_controls["QWEN_API_KEY"] = st.session_state["QWEN_API_KEY"] = st.text_input("API Key",
+                                                                                                    type="password",
+                                                                                                    value=os.getenv("QWEN_API_KEY", ""))
+            # Validate API key
+            if not user_controls["QWEN_API_KEY"]:
+                st.warning("⚠️ Please enter your QWEN API key to proceed. Don't have? refer : https://bailian.console.alibabacloud.com/?tab=playground#/api-key ")
     
         if st.button("Reset Session"):
             for key in list(st.session_state.keys()):
@@ -296,6 +310,8 @@ def load_app():
             obj_llm_config = GroqLLM(user_controls_input=user_input)
         elif selectedLLM == "OpenAI":
             obj_llm_config = OpenAILLM(user_controls_input=user_input)
+        elif selectedLLM == "Qwen":
+            obj_llm_config = QwenLLM(user_controls_input=user_input)
             
         model = obj_llm_config.get_llm_model()
         

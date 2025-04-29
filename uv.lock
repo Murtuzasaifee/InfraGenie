@@ -716,6 +716,7 @@ dependencies = [
     { name = "langchain-groq" },
     { name = "langchain-mistralai" },
     { name = "langchain-openai" },
+    { name = "langchain-qwq" },
     { name = "langgraph" },
     { name = "loguru" },
     { name = "opik" },
@@ -735,6 +736,7 @@ requires-dist = [
     { name = "langchain-groq", specifier = ">=0.3.2" },
     { name = "langchain-mistralai", specifier = ">=0.2.10" },
     { name = "langchain-openai", specifier = ">=0.3.12" },
+    { name = "langchain-qwq", specifier = ">=0.0.7" },
     { name = "langgraph", specifier = ">=0.3.30" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "opik", specifier = ">=1.7.11" },
@@ -866,6 +868,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/78/0f/77a63ca7aa5fed9a1b9135af57e190d905bcd3702b36aca46a01090d39ad/jiter-0.9.0-cp313-cp313t-macosx_11_0_arm64.whl", hash = "sha256:f0b2827fb88dda2cbecbbc3e596ef08d69bda06c6f57930aec8e79505dc17001", size = 317281 },
     { url = "https://files.pythonhosted.org/packages/f9/39/a3a1571712c2bf6ec4c657f0d66da114a63a2e32b7e4eb8e0b83295ee034/jiter-0.9.0-cp313-cp313t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:062b756ceb1d40b0b28f326cba26cfd575a4918415b036464a52f08632731e5a", size = 350273 },
     { url = "https://files.pythonhosted.org/packages/ee/47/3729f00f35a696e68da15d64eb9283c330e776f3b5789bac7f2c0c4df209/jiter-0.9.0-cp313-cp313t-win_amd64.whl", hash = "sha256:6f7838bc467ab7e8ef9f387bd6de195c43bad82a569c1699cb822f6609dd4cdf", size = 206867 },
+]
+
+[[package]]
+name = "json-repair"
+version = "0.40.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/88/36/e03fe9da84e04b475290f8612de7b229b78e37c80e44188b85fe56dbab66/json_repair-0.40.0.tar.gz", hash = "sha256:ce3cdef63f033d072295ca892cba51487292cd937da42dc20a8d629ecf5eb82d", size = 30098 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f4/e1/f0e63cc027669763ccc2c1e62ba69959ec02db5328c81df2508a52711ec9/json_repair-0.40.0-py3-none-any.whl", hash = "sha256:46955bfd22338ba60cc5239c0b01462ba419871b19fcd68d8881aca4fa3b0d2f", size = 20736 },
 ]
 
 [[package]]
@@ -1061,6 +1072,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/32/01/94d861be321df40f104324d3c64115917c7e774bb5d6af45d4af967c863c/langchain_openai-0.3.12.tar.gz", hash = "sha256:c9dbff63551f6bd91913bca9f99a2d057fd95dc58d4778657d67e5baa1737f61", size = 269015 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/07/7e/0d8838972ffead497b40cd42a1676f9ad90427d422c92dff2fb5461c4308/langchain_openai-0.3.12-py3-none-any.whl", hash = "sha256:0fab64d58ec95e65ffbaf659470cd362e815685e15edbcb171641e90eca4eb86", size = 61320 },
+]
+
+[[package]]
+name = "langchain-qwq"
+version = "0.0.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "json-repair" },
+    { name = "langchain-core" },
+    { name = "langchain-openai" },
+    { name = "openai" },
+    { name = "python-dotenv" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5c/01/4541821ef59941976abdee2b4e8726d7ca1a4656f34cf28850bdbddf6c55/langchain_qwq-0.0.7.tar.gz", hash = "sha256:f01563a40176eb43da8e6765fa914aa10b3c05a6430f4761c1f80943adb3bb5e", size = 9939 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/75/4c/ea56a57b54f6d1c237b7d7fc748c202ad0c8216fd67899ba5270bad78299/langchain_qwq-0.0.7-py3-none-any.whl", hash = "sha256:4ff5460f6d8f6b5ee9c34ee8a71076f8e4f7c286bb27d9e53072730d9ef7ff75", size = 10088 },
 ]
 
 [[package]]

@@ -19,6 +19,9 @@ class Config:
 
     def get_openai_model_options(self):
         return self.config["DEFAULT"].get("OPENAI_MODEL_OPTIONS").split(", ")
+    
+    def get_qwen_model_options(self):
+        return self.config["DEFAULT"].get("QWEN_MODEL_OPTIONS").split(", ")
 
     def get_page_title(self):
         return self.config["DEFAULT"].get("PAGE_TITLE")
