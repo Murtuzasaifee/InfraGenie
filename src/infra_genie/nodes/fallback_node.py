@@ -23,7 +23,7 @@ class FallbackNode:
             raise ValueError("User input is required to generate Terraform code")
         
         try:
-            print("Trying structured output approach...")
+            print("Trying fallback approach...")
                     
             prompt_template = self.get_fallback_code_prompt()
             logger.debug(f"Prompt Template: {prompt_template}")
@@ -133,15 +133,14 @@ class FallbackNode:
         - Custom Parameters: {custom_parameters}
 
         TERRAFORM BEST PRACTICES TO IMPLEMENT:
-        1. Create a modular design with proper service isolation
-        2. Implement proper network segregation (public/private/database subnets)
-        3. Follow least privilege IAM policies and proper encryption
-        4. Use environment-specific configurations with proper variable typing
-        5. Set up remote state management with appropriate locking
-        6. Include comprehensive tagging strategy 
-        7. Implement proper error handling with lifecycle management
-        8. Use latest Terraform AWS provider
-        9. Use data sources for dynamic lookups and proper resource repetition
+        1. Use provider as aws for all the environments
+        2. Add region {region} for all the environments under the provider
+        3. Create a modular design with proper service isolation
+        4. Implement proper network segregation (public/private/database subnets)
+        5. Follow least privilege IAM policies and proper encryption
+        6. Use environment-specific configurations with proper variable typing
+        7. Use data sources for dynamic lookups and proper resource repetition
+        8. Put all the network related things under a 'netoworking' module e.g. vpc, subnets, security groups etc.
 
         ENVIRONMENT CONFIGURATIONS:
         - dev: minimal capacity and redundancy
@@ -153,6 +152,7 @@ class FallbackNode:
         1. main.tf - with the module configurations
         2. variables.tf - with input variables
         3. output.tf - with output values
+        In each environment configurations (dev, stage, prod), in their main.tf file give the module path as ex: (source = "../../modules/lambda")
 
         For each required module based on the services list ({services}) and {requirements}, create:
         1. main.tf - with the resource definitions
