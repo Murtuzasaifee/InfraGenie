@@ -1,0 +1,90 @@
+{
+    "project_name": "ATS Agent",
+    "next_node": "save_code",
+    "modules": {
+      "modules": [
+        {
+          "name": "networking",
+          "main_tf": "resource \"aws_vpc\" \"main\" {\n  cidr_block = var.vpc_cidr\n  tags = {\n    Name = \"${var.environment}-vpc\"\n    Environment = var.environment\n    ManagedBy = \"Terraform\"\n    Owner = \"DevOps\"\n  }\n}\n\nresource \"aws_subnet\" \"public\" {\n  count = length(var.public_subnets)\n  vpc_id = aws_vpc.main.id\n  cidr_block = var.public_subnets[count.index]\n  availability_zone = var.availability_zones[count.index]\n  tags = {\n    Name = \"${var.environment}-public-subnet-${count.index}\"\n    Environment = var.environment\n    ManagedBy = \"Terraform\"\n    Owner = \"DevOps\"\n  }\n}\n\nresource \"aws_subnet\" \"private\" {\n  count = length(var.private_subnets)\n  vpc_id = aws_vpc.main.id\n  cidr_block = var.private_subnets[count.index]\n  availability_zone = var.availability_zones[count.index]\n  tags = {\n    Name = \"${var.environment}-private-subnet-${count.index}\"\n    Environment = var.environment\n    ManagedBy = \"Terraform\"\n    Owner = \"DevOps\"\n  }\n}\n\nresource \"aws_subnet\" \"database\" {\n  count = length(var.database_subnets)\n  vpc_id = aws_vpc.main.id\n  cidr_block = var.database_subnets[count.index]\n  availability_zone = var.availability_zones[count.index]\n  tags = {\n    Name = \"${var.environment}-database-subnet-${count.index}\"\n    Environment = var.environment\n    ManagedBy = \"Terraform\"\n    Owner = \"DevOps\"\n  }\n}",
+          "output_tf": "output \"vpc_id\" {\n  value = aws_vpc.main.id\n}\n\noutput \"public_subnets\" {\n  value = aws_subnet.public[*].id\n}\n\noutput \"private_subnets\" {\n  value = aws_subnet.private[*].id\n}\n\noutput \"database_subnets\" {\n  value = aws_subnet.database[*].id\n}",
+          "variables_tf": "variable \"vpc_cidr\" {\n  description = \"The CIDR block for the VPC\"\n  type        = string\n}\n\nvariable \"public_subnets\" {\n  description = \"A list of public subnets\"\n  type        = list(string)\n}\n\nvariable \"private_subnets\" {\n  description = \"A list of private subnets\"\n  type        = list(string)\n}\n\nvariable \"database_subnets\" {\n  description = \"A list of database subnets\"\n  type        = list(string)\n}\n\nvariable \"availability_zones\" {\n  description = \"A list of availability zones\"\n  type        = list(string)\n}\n\nvariable \"environment\" {\n  description = \"The environment (dev, stage, prod)\"\n  type        = string\n}"
+        },
+        {
+          "name": "ec2",
+          "main_tf": "resource \"aws_instance\" \"main\" {\n  ami           = \"ami-0c55b159cbfafe1f0\" # Amazon Linux 2 AMI\n  instance_type = var.instance_type\n  subnet_id     = var.subnet_id\n  tags = {\n    Name = \"${var.environment}-ec2-instance\"\n    Environment = var.environment\n    ManagedBy = \"Terraform\"\n    Owner = \"DevOps\"\n  }\n}",
+          "output_tf": "output \"instance_id\" {\n  value = aws_instance.main.id\n}",
+          "variables_tf": "variable \"instance_type\" {\n  description = \"The type of EC2 instance\"\n  type        = string\n}\n\nvariable \"subnet_id\" {\n  description = \"The subnet ID for the EC2 instance\"\n  type        = string\n}\n\nvariable \"environment\" {\n  description = \"The environment (dev, stage, prod)\"\n  type        = string\n}"
+        },
+        {
+          "name": "lambda",
+          "main_tf": "resource \"aws_lambda_function\" \"main\" {\n  filename      = \"lambda_function_payload.zip\"\n  function_name = \"${var.environment}-lambda-function\"\n  role          = aws_iam_role.lambda_exec.arn\n  handler       = \"index.handler\"\n  runtime       = \"nodejs14.x\"\n  tags = {\n    Environment = var.environment\n    ManagedBy = \"Terraform\"\n    Owner = \"DevOps\"\n  }\n}\n\nresource \"aws_iam_role\" \"lambda_exec\" {\n  name = \"${var.environment}-lambda-exec-role\"\n  assume_role_policy = jsonencode({\n    Version = \"2012-10-17\"\n    Statement = [\n      {\n        Action = \"sts:AssumeRole\"\n        Effect = \"Allow\"\n        Principal = {\n          Service = \"lambda.amazonaws.com\"\n        }\n      }\n    ]\n  })\n}",
+          "output_tf": "output \"function_name\" {\n  value = aws_lambda_function.main.function_name\n}",
+          "variables_tf": "variable \"environment\" {\n  description = \"The environment (dev, stage, prod)\"\n  type        = string\n}"
+        }
+      ]
+    },
+    "environments": {
+      "environments": [
+        {
+          "name": "dev",
+          "main_tf": "provider \"aws\" {\n  region = \"us-west-1\"\n}\n\nmodule \"networking\" {\n  source = \"../../modules/networking\"\n  vpc_cidr = \"10.0.0.0/16\"\n  public_subnets = [\"10.0.1.0/24\", \"10.0.2.0/24\"]\n  private_subnets = [\"10.0.3.0/24\", \"10.0.4.0/24\"]\n  database_subnets = [\"10.0.5.0/24\", \"10.0.6.0/24\"]\n  availability_zones = [\"us-west-1a\", \"us-west-1b\"]\n  environment = \"dev\"\n}\n\nmodule \"ec2\" {\n  source = \"../../modules/ec2\"\n  instance_type = \"t2.micro\"\n  subnet_id = module.networking.private_subnets[0]\n  environment = \"dev\"\n}\n\nmodule \"lambda\" {\n  source = \"../../modules/lambda\"\n  environment = \"dev\"\n}",
+          "output_tf": "output \"vpc_id\" {\n  value = module.networking.vpc_id\n}\n\noutput \"public_subnets\" {\n  value = module.networking.public_subnets\n}\n\noutput \"private_subnets\" {\n  value = module.networking.private_subnets\n}\n\noutput \"database_subnets\" {\n  value = module.networking.database_subnets\n}\n\noutput \"ec2_instance_id\" {\n  value = module.ec2.instance_id\n}\n\noutput \"lambda_function_name\" {\n  value = module.lambda.function_name\n}",
+          "variables_tf": "variable \"vpc_cidr\" {\n  description = \"The CIDR block for the VPC\"\n  type        = string\n}\n\nvariable \"public_subnets\" {\n  description = \"A list of public subnets\"\n  type        = list(string)\n}\n\nvariable \"private_subnets\" {\n  description = \"A list of private subnets\"\n  type        = list(string)\n}\n\nvariable \"database_subnets\" {\n  description = \"A list of database subnets\"\n  type        = list(string)\n}\n\nvariable \"availability_zones\" {\n  description = \"A list of availability zones\"\n  type        = list(string)\n}\n\nvariable \"environment\" {\n  description = \"The environment (dev, stage, prod)\"\n  type        = string\n}\n\nvariable \"instance_type\" {\n  description = \"The type of EC2 instance\"\n  type        = string\n}\n\nvariable \"subnet_id\" {\n  description = \"The subnet ID for the EC2 instance\"\n  type        = string\n}"
+        },
+        {
+          "name": "stage",
+          "main_tf": "provider \"aws\" {\n  region = \"us-west-1\"\n}\n\nmodule \"networking\" {\n  source = \"../../modules/networking\"\n  vpc_cidr = \"10.0.0.0/16\"\n  public_subnets = [\"10.0.1.0/24\", \"10.0.2.0/24\"]\n  private_subnets = [\"10.0.3.0/24\", \"10.0.4.0/24\"]\n  database_subnets = [\"10.0.5.0/24\", \"10.0.6.0/24\"]\n  availability_zones = [\"us-west-1a\", \"us-west-1b\"]\n  environment = \"stage\"\n}\n\nmodule \"ec2\" {\n  source = \"../../modules/ec2\"\n  instance_type = \"t2.micro\"\n  subnet_id = module.networking.private_subnets[0]\n  environment = \"stage\"\n}\n\nmodule \"lambda\" {\n  source = \"../../modules/lambda\"\n  environment = \"stage\"\n}",
+          "output_tf": "output \"vpc_id\" {\n  value = module.networking.vpc_id\n}\n\noutput \"public_subnets\" {\n  value = module.networking.public_subnets\n}\n\noutput \"private_subnets\" {\n  value = module.networking.private_subnets\n}\n\noutput \"database_subnets\" {\n  value = module.networking.database_subnets\n}\n\noutput \"ec2_instance_id\" {\n  value = module.ec2.instance_id\n}\n\noutput \"lambda_function_name\" {\n  value = module.lambda.function_name\n}",
+          "variables_tf": "variable \"vpc_cidr\" {\n  description = \"The CIDR block for the VPC\"\n  type        = string\n}\n\nvariable \"public_subnets\" {\n  description = \"A list of public subnets\"\n  type        = list(string)\n}\n\nvariable \"private_subnets\" {\n  description = \"A list of private subnets\"\n  type        = list(string)\n}\n\nvariable \"database_subnets\" {\n  description = \"A list of database subnets\"\n  type        = list(string)\n}\n\nvariable \"availability_zones\" {\n  description = \"A list of availability zones\"\n  type        = list(string)\n}\n\nvariable \"environment\" {\n  description = \"The environment (dev, stage, prod)\"\n  type        = string\n}\n\nvariable \"instance_type\" {\n  description = \"The type of EC2 instance\"\n  type        = string\n}\n\nvariable \"subnet_id\" {\n  description = \"The subnet ID for the EC2 instance\"\n  type        = string\n}"
+        },
+        {
+          "name": "prod",
+          "main_tf": "provider \"aws\" {\n  region = \"us-west-1\"\n}\n\nmodule \"networking\" {\n  source = \"../../modules/networking\"\n  vpc_cidr = \"10.0.0.0/16\"\n  public_subnets = [\"10.0.1.0/24\", \"10.0.2.0/24\"]\n  private_subnets = [\"10.0.3.0/24\", \"10.0.4.0/24\"]\n  database_subnets = [\"10.0.5.0/24\", \"10.0.6.0/24\"]\n  availability_zones = [\"us-west-1a\", \"us-west-1b\"]\n  environment = \"prod\"\n}\n\nmodule \"ec2\" {\n  source = \"../../modules/ec2\"\n  instance_type = \"t2.micro\"\n  subnet_id = module.networking.private_subnets[0]\n  environment = \"prod\"\n}\n\nmodule \"lambda\" {\n  source = \"../../modules/lambda\"\n  environment = \"prod\"\n}",
+          "output_tf": "output \"vpc_id\" {\n  value = module.networking.vpc_id\n}\n\noutput \"public_subnets\" {\n  value = module.networking.public_subnets\n}\n\noutput \"private_subnets\" {\n  value = module.networking.private_subnets\n}\n\noutput \"database_subnets\" {\n  value = module.networking.database_subnets\n}\n\noutput \"ec2_instance_id\" {\n  value = module.ec2.instance_id\n}\n\noutput \"lambda_function_name\" {\n  value = module.lambda.function_name\n}",
+          "variables_tf": "variable \"vpc_cidr\" {\n  description = \"The CIDR block for the VPC\"\n  type        = string\n}\n\nvariable \"public_subnets\" {\n  description = \"A list of public subnets\"\n  type        = list(string)\n}\n\nvariable \"private_subnets\" {\n  description = \"A list of private subnets\"\n  type        = list(string)\n}\n\nvariable \"database_subnets\" {\n  description = \"A list of database subnets\"\n  type        = list(string)\n}\n\nvariable \"availability_zones\" {\n  description = \"A list of availability zones\"\n  type        = list(string)\n}\n\nvariable \"environment\" {\n  description = \"The environment (dev, stage, prod)\"\n  type        = string\n}\n\nvariable \"instance_type\" {\n  description = \"The type of EC2 instance\"\n  type        = string\n}\n\nvariable \"subnet_id\" {\n  description = \"The subnet ID for the EC2 instance\"\n  type        = string\n}"
+        }
+      ]
+    },
+    "user_input": {
+      "services": [
+        "ec2",
+        "lambda"
+      ],
+      "region": "us-west-1",
+      "vpc_cidr": "10.0.0.0/16",
+      "subnet_configuration": {
+        "public": [
+          "10.0.1.24/16",
+          "10.0.2.24/16"
+        ],
+        "private": [
+          "10.0.3.0/24",
+          "10.0.4.0/24"
+        ],
+        "database": [
+          "10.0.5.0/24",
+          "10.0.6.24/16"
+        ]
+      },
+      "availability_zones": [
+        "us-west-1a",
+        "us-west-1b"
+      ],
+      "compute_type": "ec2",
+      "database_type": "rds",
+      "is_multi_az": true,
+      "is_serverless": false,
+      "enable_logging": true,
+      "enable_monitoring": true,
+      "load_balancer_type": "ALB",
+      "enable_waf": true,
+      "tags": {
+        "Environment": "dev",
+        "ManagedBy": "Terraform",
+        "Owner": "DevOps"
+      },
+      "requirements": "",
+      "custom_parameters": {}
+    },
+    "code_generated": true
+  }
