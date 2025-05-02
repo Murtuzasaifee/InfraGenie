@@ -283,6 +283,25 @@ def load_user_input_ui():
         "requirements": requirements,
         "custom_parameters": custom_parameters,
     }
+
+
+def read_all_generated_code():
+    base_path = Path("output/src")
+    code_output = {}
+
+    for root in ["environments", "modules"]:
+        root_path = base_path / root
+        if root_path.exists():
+            for section in root_path.iterdir():
+                if section.is_dir():
+                    files = {}
+                    for tf_file in section.glob("*.tf"):
+                        with open(tf_file, "r") as f:
+                            files[tf_file.name] = f.read()
+                    if files:
+                        code_output[f"{root}/{section.name}"] = files
+    return code_output
+
     
 ## Main Entry Point    
 def load_app():
@@ -386,8 +405,18 @@ def load_app():
             if st.session_state.stage in [const.GENERATE_CODE]:
                 
                 logger.info("Code generation stage reached.")
-                # Show code generation content here
-                st.info("Code is being generated based on your requirements...")
+                
+                st.info("Generated Terraform code output is shown below:")
+
+                all_code = read_all_generated_code()
+                if not all_code:
+                    st.warning("No Terraform code files found.")
+                else:
+                    for section, files in all_code.items():
+                        st.subheader(f"🗂️ {section}")
+                        for filename, content in files.items():
+                            with st.expander(f"📄 {filename}"):
+                                st.code(content, language="hcl")
                 
                 # Display requirements summary for reference
                 if "user_input" in st.session_state.state:

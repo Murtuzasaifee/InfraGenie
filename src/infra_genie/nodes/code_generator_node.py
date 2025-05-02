@@ -73,32 +73,74 @@ class CodeGeneratorNode:
     def get_terraform_code_prompt(self) -> str:
         terraform_prompt = """
         You are an expert AWS Solutions Architect specializing in Infrastructure as Code (IaC) with Terraform. Your task is to create production-ready, enterprise-grade Terraform code that meets strict compliance, security, and operational excellence standards.
-        
-        ## USER REQUIREMENTS
+
+        USER REQUIREMENTS:
         {requirements}
 
-        ## INFRASTRUCTURE SPECIFICATIONS
+        INFRASTRUCTURE SPECIFICATIONS:
         Each parameter below MUST be explicitly implemented in the generated code:
 
-        | Parameter | Value | Required Implementation |
-        |-----------|-------|-------------------------|
-        | AWS Services | {services} | Each service requires a dedicated module with comprehensive implementation |
-        | VPC CIDR | {vpc_cidr} | Must be implemented in networking module with proper subnet calculations |
-        | Subnet Configuration | {subnet_configuration} | Must create appropriate subnet tiers with proper CIDR allocations |
-        | Availability Zones | {availability_zones} | Must be used to determine resource distribution for high availability |
-        | Compute Type | {compute_type} | Must inform the specific compute module implementation |
-        | Multi-AZ Deployment | {is_multi_az} | Must be used to determine resource distribution across AZs |
-        | Serverless Architecture | {is_serverless} | Must determine whether to use Lambda/API Gateway vs traditional compute |
-        | Load Balancer Type | {load_balancer_type} | Must implement the specific load balancer with proper configuration |
-        | Logging Enabled | {enable_logging} | Must implement comprehensive logging for all resources if true |
-        | Monitoring Enabled | {enable_monitoring} | Must implement CloudWatch metrics, alarms, and dashboards if true |
-        | WAF Enabled | {enable_waf} | Must implement WAF with proper rule sets if true |
-        | Resource Tags | {tags} | Must be applied to all resources via provider and explicit tagging |
-        | Database Type | {database_type} | Must implement the specific database service with proper configuration |
-        | Advanced Parameters | {custom_parameters} | Must be incorporated into relevant modules based on parameter context |
-        | Region | {region} | Must be used in provider configuration and region-specific resources |
+        Parameter: AWS Services
+        Value: {services}
+        Required Implementation: Each service requires a dedicated module with comprehensive implementation
 
-        ## TERRAFORM CODE STANDARDS
+        Parameter: VPC CIDR
+        Value: {vpc_cidr}
+        Required Implementation: Must be implemented in networking module with proper subnet calculations
+
+        Parameter: Subnet Configuration
+        Value: {subnet_configuration}
+        Required Implementation: Must create appropriate subnet tiers with proper CIDR allocations
+
+        Parameter: Availability Zones
+        Value: {availability_zones}
+        Required Implementation: Must be used to determine resource distribution for high availability
+
+        Parameter: Compute Type
+        Value: {compute_type}
+        Required Implementation: Must inform the specific compute module implementation
+
+        Parameter: Multi-AZ Deployment
+        Value: {is_multi_az}
+        Required Implementation: Must be used to determine resource distribution across AZs
+
+        Parameter: Serverless Architecture
+        Value: {is_serverless}
+        Required Implementation: Must determine whether to use Lambda/API Gateway vs traditional compute
+
+        Parameter: Load Balancer Type
+        Value: {load_balancer_type}
+        Required Implementation: Must implement the specific load balancer with proper configuration
+
+        Parameter: Logging Enabled
+        Value: {enable_logging}
+        Required Implementation: Must implement comprehensive logging for all resources if true
+
+        Parameter: Monitoring Enabled
+        Value: {enable_monitoring}
+        Required Implementation: Must implement CloudWatch metrics, alarms, and dashboards if true
+
+        Parameter: WAF Enabled
+        Value: {enable_waf}
+        Required Implementation: Must implement WAF with proper rule sets if true
+
+        Parameter: Resource Tags
+        Value: {tags}
+        Required Implementation: Must be applied to all resources via provider and explicit tagging
+
+        Parameter: Database Type
+        Value: {database_type}
+        Required Implementation: Must implement the specific database service with proper configuration
+
+        Parameter: Advanced Parameters
+        Value: {custom_parameters}
+        Required Implementation: Must be incorporated into relevant modules based on parameter context
+
+        Parameter: Region
+        Value: {region}
+        Required Implementation: Must be used in provider configuration and region-specific resources
+
+        TERRAFORM CODE STANDARDS:
 
         1. Module Organization:
         - Each module must have:
@@ -106,19 +148,18 @@ class CodeGeneratorNode:
             - variables.tf - ALL inputs with validation blocks, descriptions, and constraints
             - outputs.tf - ALL necessary outputs for cross-module references
 
-        2. Provider Configuration:
-        ```
+        2. Provider Configuration Example:
         terraform {{
             required_version = ">= 1.5.0"
             required_providers {{
-                aws = {{
-                    source  = "hashicorp/aws"
-                    version = "~> 5.0"
-                }}
-                random = {{
-                    source  = "hashicorp/random"
-                    version = "~> 3.5"
-                }}
+            aws = {{
+                source  = "hashicorp/aws"
+                version = "~> 5.0"
+            }}
+            random = {{
+                source  = "hashicorp/random"
+                version = "~> 3.5"
+            }}
             }}
         }}
         
@@ -126,35 +167,27 @@ class CodeGeneratorNode:
             region = var.region
             
             default_tags {{
-                tags = var.tags
+            tags = var.tags
             }}
         }}
-        ```
 
-        3. Variable Definitions:
-        - All variables must have:
-            - Type constraints (use complex types where appropriate)
-            - Descriptions
-            - Default values where appropriate
-            - Validation blocks for inputs that need constraints
-        ```
+        3. Variable Definitions Example:
         variable "example_variable" {{
             description = "Detailed description of the variable's purpose"
             type        = string
             default     = "default_value"  # Omit for required variables
             
             validation {{
-                condition     = length(var.example_variable) > 3
-                error_message = "The example_variable must be more than 3 characters."
+            condition     = length(var.example_variable) > 3
+            error_message = "The example_variable must be more than 3 characters."
             }}
         }}
-        ```
 
         4. Resource Naming:
-        - Use consistent naming convention: <prefix>-<resource_type>-<purpose>-<environment>
+        - Use consistent naming convention: prefix-resource_type-purpose-environment
         - Example: mycompany-ec2-webserver-prod
 
-        ## IMPLEMENTATION REQUIREMENTS
+        IMPLEMENTATION REQUIREMENTS:
         EACH parameter from the INFRASTRUCTURE SPECIFICATIONS must be explicitly used as follows:
 
         1. Networking Module:
@@ -265,7 +298,7 @@ class CodeGeneratorNode:
             - CostCenter
             - Application
 
-        ## ADVANCED CONFIGURATION
+        ADVANCED CONFIGURATION:
         1. State Management:
         - S3 backend with versioning
         - DynamoDB for state locking
@@ -295,26 +328,20 @@ class CodeGeneratorNode:
         - Lifecycle policies for storage
         - Resource scheduling for non-production
 
-        ## STRUCTURED OUTPUT FORMAT
+        STRUCTURED OUTPUT FORMAT:
         Your response must be structured according to the following model:
 
-        class TerraformComponent(BaseModel):
-            name: str = Field(..., description="The name of the component.")
-            main_tf: str = Field(..., description="The main.tf file content.")
-            output_tf: str = Field(..., description="The output.tf file content.")
-            variables_tf: str = Field(..., description="The variables.tf file content.")
+        class TerraformComponent:
+            name: str              # The name of the component
+            main_tf: str           # The main.tf file content
+            output_tf: str         # The output.tf file content
+            variables_tf: str      # The variables.tf file content
             
-        class EnvironmentList(BaseModel):
-            environments: List[TerraformComponent] = []
+        class TerraformOutput:
+            environments: List[TerraformComponent]  # dev, stage, prod environments
+            modules: List[TerraformComponent]       # Service modules
 
-        class ModuleList(BaseModel):
-            modules: List[TerraformComponent] = []
-
-        class TerraformOutput(BaseModel):
-            environments: List[TerraformComponent]
-            modules: List[TerraformComponent]
-
-        ## DELIVERABLES
+        DELIVERABLES:
         1. Generate all environments (dev, stage, prod) as TerraformComponent objects with:
         - Proper module references in main.tf (e.g., source = "../../modules/lambda")
         - Environment-specific variable values
@@ -338,7 +365,6 @@ class CodeGeneratorNode:
 
         Your task is to generate comprehensive, production-ready Terraform code that fully implements all specifications and follows all best practices outlined above. The code must be complete, production-grade, and ready for enterprise deployment.
         """
-        
         return terraform_prompt
     
     def is_code_generated(self, state: InfraGenieState):

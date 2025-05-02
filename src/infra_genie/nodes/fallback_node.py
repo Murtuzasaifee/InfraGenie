@@ -174,6 +174,7 @@ class FallbackNode:
 
         And so on for all environments and modules.
         DO NOT provide explanations or additional text - ONLY the Terraform code with headers.
+        Do not include markdown code block syntax like ```terraform or ``` around the generated Terraform code. Only provide raw .tf content without wrapping it in code fences.
         """
         
         return terraform_prompt
