@@ -3,18 +3,23 @@ from src.infra_genie.cache.redis_cache import flush_redis_cache, save_state_to_r
 import uuid
 import src.infra_genie.utils.constants as const
 from loguru import logger
+from langfuse.callback import CallbackHandler
 
 class GraphExecutor:
     def __init__(self, graph):
         self.graph = graph
+        self.langfuse_handler = CallbackHandler()
 
     def get_thread(self, task_id):
         return {"configurable": {"thread_id": task_id}}
     
+    def get_langfuse_callback(self):
+        return {"callbacks": [self.langfuse_handler]}
+    
     def get_config(self, task_id):
         config = {}
         config.update(self.get_thread(task_id))
-        
+        config.update(self.get_langfuse_callback())
         logger.debug(f"Config: {config}")
         return config
     

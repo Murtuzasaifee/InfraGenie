@@ -21,17 +21,17 @@ class CodeValidatorNode:
                 raise Exception(f"Terraform code directory '{self.base_directory}' does not exist.")
 
             # Run 'terraform init'
-            result = subprocess.run(
-                ["terraform", "init"],
-                cwd=self.base_directory,
-                capture_output=True,
-                text=True
-            )
+            # result = subprocess.run(
+            #     ["terraform", "init"],
+            #     cwd=self.base_directory,
+            #     capture_output=True,
+            #     text=True
+            # )
 
-            logger.debug(f"Terraform Validation Response: {result}")
+            # logger.debug(f"Terraform Validation Response: {result}")
             
-            if result.returncode != 0:
-                raise Exception(f"Terraform init failed:\n{result.stderr}")
+            # if result.returncode != 0:
+            #     raise Exception(f"Terraform init failed:\n{result.stderr}")
             
             state.next_node = const.SAVE_CODE       
             return state

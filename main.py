@@ -9,9 +9,15 @@ def main():
    
    load_dotenv()
    
-   os.environ["LANGCHAIN_API_KEY"]=os.getenv("LANGCHAIN_API_KEY")
-   os.environ["LANGCHAIN_TRACING_V2"]="true"
-   os.environ["LANGCHAIN_PROJECT"]=os.getenv("LANGCHAIN_PROJECT")
+   ## LangChain Tracing
+   # os.environ["LANGCHAIN_API_KEY"]=os.getenv("LANGCHAIN_API_KEY")
+   # os.environ["LANGCHAIN_TRACING_V2"]="true"
+   # os.environ["LANGCHAIN_PROJECT"]=os.getenv("LANGCHAIN_PROJECT")
+   
+   ## LangFuse Tracing
+   os.environ["LANGFUSE_PUBLIC_KEY"] = os.getenv("LANGFUSE_PUBLIC_KEY")
+   os.environ["LANGFUSE_SECRET_KEY"] = os.getenv("LANGFUSE_SECRET_KEY")
+   os.environ["LANGFUSE_HOST"] = os.getenv("LANGFUSE_HOST")
    
    load_app()
 

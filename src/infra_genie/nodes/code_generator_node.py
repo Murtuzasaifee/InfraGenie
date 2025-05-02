@@ -30,6 +30,8 @@ class CodeGeneratorNode:
             
             structured_prompt = PromptTemplate.from_template(prompt_template)
             
+            logger.debug(f"""Structured Prompt: {structured_prompt.to_json()}""")
+
             input_dict = state.user_input.model_dump()
             logger.debug(f"User Input: {input_dict}")
 
@@ -67,10 +69,11 @@ class CodeGeneratorNode:
         return state
     
     
+    
     def get_terraform_code_prompt(self) -> str:
         terraform_prompt = """
         You are an expert AWS Solutions Architect specializing in Infrastructure as Code (IaC) with Terraform. Your task is to create production-ready, enterprise-grade Terraform code that meets strict compliance, security, and operational excellence standards.
-
+        
         ## USER REQUIREMENTS
         {requirements}
 
@@ -96,64 +99,65 @@ class CodeGeneratorNode:
         | Region | {region} | Must be used in provider configuration and region-specific resources |
 
         ## TERRAFORM CODE STANDARDS
-        1. **Module Organization**:
-        - Each module must have:
-            - `main.tf` - Core resources
-            - `variables.tf` - ALL inputs with validation blocks, descriptions, and constraints
-            - `outputs.tf` - ALL necessary outputs for cross-module references
 
-        2. **Provider Configuration**:
-        ```hcl
-        terraform {
+        1. Module Organization:
+        - Each module must have:
+            - main.tf - Core resources
+            - variables.tf - ALL inputs with validation blocks, descriptions, and constraints
+            - outputs.tf - ALL necessary outputs for cross-module references
+
+        2. Provider Configuration:
+        ```
+        terraform {{
             required_version = ">= 1.5.0"
-            required_providers {
-            aws = {
-                source  = "hashicorp/aws"
-                version = "~> 5.0"
-            }
-            random = {
-                source  = "hashicorp/random"
-                version = "~> 3.5"
-            }
-            }
-        }
+            required_providers {{
+                aws = {{
+                    source  = "hashicorp/aws"
+                    version = "~> 5.0"
+                }}
+                random = {{
+                    source  = "hashicorp/random"
+                    version = "~> 3.5"
+                }}
+            }}
+        }}
         
-        provider "aws" {
+        provider "aws" {{
             region = var.region
             
-            default_tags {
-            tags = var.tags
-            }
-        }
+            default_tags {{
+                tags = var.tags
+            }}
+        }}
         ```
 
-        3. **Variable Definitions**:
+        3. Variable Definitions:
         - All variables must have:
             - Type constraints (use complex types where appropriate)
             - Descriptions
             - Default values where appropriate
             - Validation blocks for inputs that need constraints
-        ```hcl
-        variable "example_variable" {
+        ```
+        variable "example_variable" {{
             description = "Detailed description of the variable's purpose"
             type        = string
             default     = "default_value"  # Omit for required variables
             
-            validation {
-            condition     = length(var.example_variable) > 3
-            error_message = "The example_variable must be more than 3 characters."
-            }
-        }
+            validation {{
+                condition     = length(var.example_variable) > 3
+                error_message = "The example_variable must be more than 3 characters."
+            }}
+        }}
         ```
 
-        4. **Resource Naming**:
-        - Use consistent naming convention: `<prefix>-<resource_type>-<purpose>-<environment>`
-        - Example: `mycompany-ec2-webserver-prod`
+        4. Resource Naming:
+        - Use consistent naming convention: <prefix>-<resource_type>-<purpose>-<environment>
+        - Example: mycompany-ec2-webserver-prod
 
         ## IMPLEMENTATION REQUIREMENTS
         EACH parameter from the INFRASTRUCTURE SPECIFICATIONS must be explicitly used as follows:
 
-        1. **Networking Module**:
+        1. Networking Module:
         - VPC with CIDR from {vpc_cidr}
         - Subnets based on {subnet_configuration}:
             - Public subnets with Internet Gateway
@@ -164,7 +168,7 @@ class CodeGeneratorNode:
         - Flow logs if {enable_logging} is true
         - Transit Gateway or VPC Peering if multiple VPCs needed
 
-        2. **Compute Module** based on {compute_type} and {is_serverless}:
+        2. Compute Module based on {compute_type} and {is_serverless}:
         - If {is_serverless} is true:
             - Lambda functions with appropriate memory/timeout settings
             - API Gateway with proper integration and auth
@@ -180,7 +184,7 @@ class CodeGeneratorNode:
             - Service discovery
         - Multi-AZ distribution if {is_multi_az} is true
 
-        3. **Load Balancing** based on {load_balancer_type}:
+        3. Load Balancing based on {load_balancer_type}:
         - ALB for HTTP/HTTPS with:
             - Proper target groups
             - Health checks
@@ -192,7 +196,7 @@ class CodeGeneratorNode:
         - GWLB for network security appliances
         - Integration with Route 53 for DNS
 
-        4. **Database** based on {database_type}:
+        4. Database based on {database_type}:
         - RDS:
             - Multi-AZ if {is_multi_az} is true
             - Parameter groups
@@ -207,7 +211,7 @@ class CodeGeneratorNode:
             - Redis vs Memcached based on use case
             - Multi-AZ if {is_multi_az} is true
 
-        5. **Security Implementation**:
+        5. Security Implementation:
         - IAM:
             - Least privilege policies
             - Roles with policy attachments
@@ -225,7 +229,7 @@ class CodeGeneratorNode:
             - Custom rules based on requirements
         - AWS Shield Advanced if needed
 
-        6. **Monitoring and Logging** if {enable_monitoring} or {enable_logging} is true:
+        6. Monitoring and Logging if {enable_monitoring} or {enable_logging} is true:
         - CloudWatch:
             - Log groups for all services
             - Metrics and alarms for key indicators
@@ -239,7 +243,7 @@ class CodeGeneratorNode:
             - Tracing for distributed systems
             - Sampling rules
 
-        7. **Environment Differentiation**:
+        7. Environment Differentiation:
         - Dev:
             - Lower cost instance types
             - Minimal redundancy
@@ -253,7 +257,7 @@ class CodeGeneratorNode:
             - Strict security controls
             - Complete monitoring
 
-        8. **Tagging Strategy**:
+        8. Tagging Strategy:
         - Apply {tags} to all resources
         - Additional required tags:
             - Environment
@@ -262,30 +266,30 @@ class CodeGeneratorNode:
             - Application
 
         ## ADVANCED CONFIGURATION
-        1. **State Management**:
+        1. State Management:
         - S3 backend with versioning
         - DynamoDB for state locking
         - State file isolation per environment
 
-        2. **Secret Management**:
+        2. Secret Management:
         - AWS Secrets Manager for sensitive data
         - No hardcoded secrets in Terraform files
         - IAM roles for service access
 
-        3. **Compliance Features**:
+        3. Compliance Features:
         - Resource encryption in-transit and at-rest
         - VPC endpoints for private AWS service access
         - GuardDuty integration
         - AWS Config rules
         - Security Hub integration
 
-        4. **Operational Excellence**:
+        4. Operational Excellence:
         - Auto-remediation with EventBridge rules
         - Backup strategies for all data stores
         - Disaster recovery configurations
         - Cross-region resources if needed
 
-        5. **Cost Optimization**:
+        5. Cost Optimization:
         - Reserved Instances/Savings Plans declarations
         - Auto Scaling policies
         - Lifecycle policies for storage
@@ -294,7 +298,6 @@ class CodeGeneratorNode:
         ## STRUCTURED OUTPUT FORMAT
         Your response must be structured according to the following model:
 
-        ```python
         class TerraformComponent(BaseModel):
             name: str = Field(..., description="The name of the component.")
             main_tf: str = Field(..., description="The main.tf file content.")
@@ -310,7 +313,6 @@ class CodeGeneratorNode:
         class TerraformOutput(BaseModel):
             environments: List[TerraformComponent]
             modules: List[TerraformComponent]
-        ```
 
         ## DELIVERABLES
         1. Generate all environments (dev, stage, prod) as TerraformComponent objects with:
@@ -338,7 +340,7 @@ class CodeGeneratorNode:
         """
         
         return terraform_prompt
-        
+    
     def is_code_generated(self, state: InfraGenieState):
         """Decide whether to use the fallback method based on the code generation status."""
         return state.code_generated
