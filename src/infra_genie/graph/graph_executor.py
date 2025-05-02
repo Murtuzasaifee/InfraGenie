@@ -3,25 +3,19 @@ from src.infra_genie.cache.redis_cache import flush_redis_cache, save_state_to_r
 import uuid
 import src.infra_genie.utils.constants as const
 from loguru import logger
-from opik.integrations.langchain import OpikTracer
 
 class GraphExecutor:
     def __init__(self, graph):
         self.graph = graph
-        
-        # Create the OpikTracer
-        self.opik_tracer = OpikTracer(graph=graph.get_graph(xray=True))
 
     def get_thread(self, task_id):
         return {"configurable": {"thread_id": task_id}}
     
     def get_config(self, task_id):
-         ## Define Opik config and thread_id
-        config = {
-            "callbacks": [self.opik_tracer],
-            "configurable": {"thread_id": task_id}
-        }
-
+        config = {}
+        config.update(self.get_thread(task_id))
+        
+        logger.debug(f"Config: {config}")
         return config
     
     ## ------- Start the Workflow ------- ##

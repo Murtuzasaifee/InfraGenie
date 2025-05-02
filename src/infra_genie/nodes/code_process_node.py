@@ -4,7 +4,6 @@ from src.infra_genie.state.infra_genie_state import InfraGenieState, TerraformCo
 from langchain_core.prompts import PromptTemplate
 from src.infra_genie.utils import constants as const
 import os
-import opik
     
 
 class ProcessCodeNode:
