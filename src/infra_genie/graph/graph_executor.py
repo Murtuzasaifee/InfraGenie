@@ -6,9 +6,11 @@ from loguru import logger
 from langfuse.callback import CallbackHandler
 
 class GraphExecutor:
-    def __init__(self, graph):
+    def __init__(self, graph, task_id):
         self.graph = graph
-        self.langfuse_handler = CallbackHandler()
+        self.task_id = task_id
+        self.user_id = "msaifee"
+        self.langfuse_handler = CallbackHandler(session_id=self.task_id, user_id=self.user_id)
 
     def get_thread(self, task_id):
         return {"configurable": {"thread_id": task_id}}
@@ -29,9 +31,7 @@ class GraphExecutor:
 
         flush_redis_cache()
 
-        # Generate a unique task id
-        task_id = f"ig-session-{uuid.uuid4().hex[:8]}"
-
+        task_id = self.task_id
         thread = self.get_thread(task_id)
 
         state = None

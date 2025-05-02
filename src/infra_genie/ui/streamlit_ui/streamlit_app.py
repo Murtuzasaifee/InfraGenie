@@ -13,12 +13,13 @@ from loguru import logger
 import json
 from pathlib import Path
 from src.infra_genie.state.infra_genie_state import UserInput
+import uuid
 
 def initialize_session():
     st.session_state.stage = const.PROJECT_INITILIZATION
     st.session_state.project_name = ""
     st.session_state.requirements = ""
-    st.session_state.task_id = ""
+    st.session_state.task_id = f"ig-session-{uuid.uuid4().hex[:8]}"
     st.session_state.state = {}
     st.session_state.form_data = {}
     # Add current tab index tracking
@@ -323,7 +324,7 @@ def load_app():
         graph_builder = GraphBuilder(model)
         try:
             graph = graph_builder.setup_graph()
-            graph_executor = GraphExecutor(graph)
+            graph_executor = GraphExecutor(graph, st.session_state.task_id)
         except Exception as e:
             st.error(f"Error: Graph setup failed - {e}")
             return
