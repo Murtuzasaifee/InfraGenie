@@ -47,14 +47,14 @@ class CodeValidatorNode:
                     
                 state.is_code_valid = False
                 state.code_validation_error = error_message
-                raise Exception(f"Terraform init failed: {error_message}")
+                logger.info(f"Terraform init failed: {error_message}")
             
             return state
         
         except Exception as e:
             state.is_code_valid = False
             state.code_validation_error = str(e)
-            raise Exception(f"Terraform Validation Error: {str(e)}")
+            logger.info(f"Terraform Validation Error: {str(e)}")
         
         
     def code_validation_router(self, state: InfraGenieState):

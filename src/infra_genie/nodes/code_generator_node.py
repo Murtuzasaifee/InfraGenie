@@ -73,7 +73,6 @@ class CodeGeneratorNode:
     
     
     def get_terraform_code_prompt(self, state: InfraGenieState) -> str:
-        # Get the original prompt template
         terraform_prompt = """
         **Objective:** Generate a production-grade Terraform configuration (in HCL, not JSON) for an AWS infrastructure spanning development, staging, and production environments.
 
@@ -128,10 +127,35 @@ class CodeGeneratorNode:
         11. **Outputs:** For each module (and possibly each environment), define outputs that might be useful (e.g., VPC ID, subnet IDs, ALB DNS name, DB endpoint, etc.), and ensure environment configurations capture these if needed for cross-module references (you might use outputs from the networking module as inputs to other modules like providing subnet IDs to the compute module).
         12. **Organize & Document:** Structure the Terraform code in a clear, logical manner. Each module may have its own `main.tf` (and optionally `variables.tf` and `outputs.tf`). Each environment directory will have a `main.tf` that calls modules (and possibly a `providers.tf` and `variables.tf` for any environment-specific provider config or input variables). In the **output response**, clearly delineate sections by file path or module name for readability. **Include comments** in the HCL code to explain any tricky parts or to note where the user must insert their specific values (for example, `<YOUR_CERT_ARN_HERE>` for an ACM certificate, or a note to replace placeholder values for things like AMI IDs if a specific one is needed). Ensure no commentary outside of code/comments — the response should essentially be a set of Terraform configuration files that the user can use.
 
-        **Output Instructions:** Provide the complete Terraform configuration as described. The output should consist of the Terraform code for all modules and the environment configurations, formatted as plain text (HCL syntax) with appropriate sections. Do not include extra explanation outside of the code; use comments within the code for any necessary notes. The goal is a ready-to-use Terraform configuration that reflects the requirements and best practices above.
+        **Output Instructions:** Provide the complete Terraform configuration as described. Format your output as follows:
+
+        1. Start each file with a line: "### FILE: path/to/filename.tf"
+        2. Then include the complete file content
+        3. End each file with a line: "### END FILE"
+        4. Do not use any markdown code fences, indentation, or other formatting that could interfere with parsing
+        5. Include comments within the code for any necessary explanations
+        6. Do not include any additional text or explanations outside of the code files
+
+        Example:
+        ### FILE: modules/networking/main.tf
+        resource "aws_vpc" "main" {
+        cidr_block = var.vpc_cidr
+        tags = var.tags
+        }
+        # Rest of VPC resources...
+        ### END FILE
+
+        ### FILE: modules/networking/variables.tf
+        variable "vpc_cidr" {
+        description = "CIDR block for the VPC"
+        type        = string
+        }
+        # More variables...
+        ### END FILE
 
         Now, **generate the Terraform code** according to these specifications.
         """
+
 
         
         # Check if code_validation_error exists and insert it into the prompt if it does
