@@ -37,8 +37,10 @@ class CodeGeneratorNode:
 
             structured_llm = self.llm.with_structured_output(TerraformOutput)
             structured_chain = structured_prompt | structured_llm
-
+    
             result = structured_chain.invoke(input_dict)
+            
+            logger.debug(f"Result: {result}")
             
             # Transfer the structured result to the state
             for env in result.environments:
@@ -72,298 +74,62 @@ class CodeGeneratorNode:
     
     def get_terraform_code_prompt(self) -> str:
         terraform_prompt = """
-        You are an expert AWS Solutions Architect specializing in Infrastructure as Code (IaC) with Terraform. Your task is to create production-ready, enterprise-grade Terraform code that meets strict compliance, security, and operational excellence standards.
+        **Objective:** Generate a production-grade Terraform configuration (in HCL, not JSON) for an AWS infrastructure spanning development, staging, and production environments.
 
-        USER REQUIREMENTS:
-        {requirements}
+        **Inputs:**
+        - **Requirements:** {{requirements}}
+        - **Services:** {{services}}
+        - **VPC CIDR:** {{vpc_cidr}}
+        - **Subnet Configuration:** {{subnet_configuration}}
+        - **Availability Zones:** {{availability_zones}}
+        - **Compute Type:** {{compute_type}}
+        - **Multi-AZ (`is_multi_az`):** {{is_multi_az}}
+        - **Serverless (`is_serverless`):** {{is_serverless}}
+        - **Load Balancer Type:** {{load_balancer_type}}
+        - **Enable Logging:** {{enable_logging}}
+        - **Enable Monitoring:** {{enable_monitoring}}
+        - **Enable WAF:** {{enable_waf}}
+        - **Tags:** {{tags}}
+        - **Database Type:** {{database_type}}
+        - **Custom Parameters:** {{custom_parameters}}
+        - **AWS Region:** {{region}}
 
-        INFRASTRUCTURE SPECIFICATIONS:
-        Each parameter below MUST be explicitly implemented in the generated code:
+        **Requirements for the Terraform Configuration:**
 
-        Parameter: AWS Services
-        Value: {services}
-        Required Implementation: Each service requires a dedicated module with comprehensive implementation
+        1. **Environment Structure:** Create separate configurations for three environments – dev, stage, and prod. Each environment should be defined in its own Terraform configuration (e.g., under an `environments/` directory). These environment files will instantiate infrastructure using reusable modules (defined below).
+        2. **Modular Design:** Set up a `modules/` directory containing Terraform modules for each major component:
+        - Networking module (VPC, subnets, routing, etc.)
+        - Modules for each AWS service listed in **Services** (and any additional components inferred from the requirements). For example, if EC2 is a service, have an EC2 (or compute) module; if RDS or DynamoDB is needed (per **Database Type**), have a database module; if serverless compute (Lambda) is used, a Lambda module; etc. Include a module for the load balancer if one is required.
+        3. **Module Integration:** In each environment’s Terraform config, use `module` blocks to call these modules. Use relative paths (e.g., `source = "../../modules/<module_name>"`) to reference module code. Provide environment-specific inputs via variables (for instance, to pass different parameters like instance count, instance size, or any naming prefixes for each environment).
+        4. **Networking Setup:** Implement a VPC using the provided CIDR (`{{vpc_cidr}}`). Create subnets as specified by **Subnet Configuration** (e.g., a set of public, private, and database subnets in each AZ as required). Attach an Internet Gateway for public subnets and NAT Gateways for outbound internet access from private subnets. Ensure routing tables direct internet traffic appropriately (public subnets route to IGW, private subnets route through NAT). If `is_multi_az` is true, create subnets in multiple availability zones (from the list provided) and deploy redundant resources across those AZs. If `is_multi_az` is false, a single-AZ deployment is acceptable (though still create the subnet structure in one AZ).
+        5. **Security and IAM:** Apply the principle of least privilege throughout:
+        - Create IAM roles for compute resources (EC2 instances, ECS tasks, Lambda functions, etc.) with only the necessary permissions (for example, permission to access specific S3 buckets, DynamoDB tables, or other AWS services as needed by the application).
+        - If the architecture includes an ECS cluster or EKS, set up any required IAM roles (e.g., ECS task role and execution role; EKS node instance profile).
+        - If a load balancer is used, use security groups to allow inbound HTTP/HTTPS (as needed) and restrict access as appropriate. For other components, restrict security group rules to only required ports and sources (e.g., allow DB access only from application subnets or instances).
+        - Enable encryption at rest: ensure EBS volumes, RDS databases, etc., have encryption enabled (using AWS-managed or customer-managed keys as appropriate). For S3 buckets, enable default SSE encryption. For DynamoDB, enable encryption (this is on by default in AWS).
+        - Enable encryption in transit: enforce HTTPS for any web endpoints (use an SSL certificate on ALB if `load_balancer_type` is ALB), and require TLS connections for databases.
+        - If `enable_waf` is true, provision an AWS WAFv2 Web ACL with a reasonable set of rules (could start with AWS Managed Rules) and associate it with the ALB or CloudFront/web distribution if one is inferred by the architecture.
+        6. **Compute Resources & Load Balancing:** Configure compute resources based on **Compute Type**:
+        - **EC2:** If compute_type is EC2 (and not serverless), use an Auto Scaling Group to manage EC2 instances across the appropriate subnets. Use a Launch Template (or Launch Configuration) specifying the AMI (you can use a generic Amazon Linux 2 AMI via data source), instance type, and user data if needed. Attach the instances to the specified **{{load_balancer_type}}** (e.g., register them in an ALB target group). Ensure health checks are in place. If multi-AZ, span the ASG across subnets in multiple AZs. Include scaling policies (target tracking or step scaling) for the ASG.
+        - **ECS/Fargate:** If using ECS (especially with `is_serverless` false for EC2 launch type or true for Fargate), create an ECS cluster (for EC2 launch type, also create an ASG of container instances; for Fargate, no ASG needed). Define an ECS task definition and service for the application. Attach the service to an ALB (if ALB is used) with an appropriate listener and target group. Set up auto-scaling for the ECS service (e.g., using Application Auto Scaling based on CPU utilization).
+        - **EKS:** If compute_type is EKS, provision an EKS cluster (which might involve creating node groups or Fargate profiles). This is complex; at minimum, create the cluster and an autoscaling node group across subnets, and perhaps note that application deployment on EKS is outside Terraform’s direct scope (if the user just wants infrastructure).
+        - **Lambda (Serverless):** If `is_serverless` is true and compute_type indicates a serverless approach (Lambda), deploy AWS Lambda functions for the application logic. If the application is web-facing, set up an API Gateway (HTTP API or REST API) or an Application Load Balancer to trigger the Lambda. Configure appropriate IAM roles for the Lambda (e.g., to allow access to other services like DynamoDB or S3 as needed). If using API Gateway, define the API Gateway resources (this could also be done via Terraform).
+        - **Load Balancer:** Implement the specified **load_balancer_type** if the architecture requires an entry point for web traffic. For ALB, set up listeners (port 80/443 as appropriate) and target groups for the application instances/tasks/Lambda. For NLB, set up listeners (e.g., TCP 80/443 or other ports as needed) and targets. Ensure the load balancer is placed in public subnets and has appropriate security group rules (for ALB) or is attached to the correct subnets (for NLB which uses subnet associations).
+        7. **Database and Persistence:** Based on **Database Type**:
+        - For a relational database (e.g., RDS MySQL/PostgreSQL or Aurora), create a DB subnet group using the database subnets. Launch an RDS instance (or Aurora cluster) with multi-AZ enabled if `is_multi_az` is true. Use the engine and instance class appropriate for the DB type. Set up master username/password (store these in Secrets Manager as mentioned below). Make the DB only accessible within the VPC (no public access). Output the DB endpoint for use by the application.
+        - For DynamoDB or other NoSQL serverless databases, create the table with the required key schema and throughput settings. Ensure that the application has the table name (via environment variable) and IAM permissions to access it.
+        - If other storage is needed (e.g., S3 buckets for static content or backups), create those with versioning and encryption enabled.
+        8. **Logging and Monitoring:** 
+        - If `enable_logging` is true, set up AWS CloudWatch Logs and other logging as appropriate. Create CloudWatch Log Groups for each relevant service (e.g., application logs from EC2 or Lambda, execution logs, etc.). Enable access logging on the ALB (targeting an S3 bucket or CloudWatch Logs). Enable VPC Flow Logs to CloudWatch or S3 for network monitoring.
+        - If `enable_monitoring` is true, create CloudWatch Alarms for critical metrics (CPU, memory, ALB response times or error rates, Lambda errors/throttles, etc.). If appropriate, set up SNS topics to receive alarm notifications (though actual SNS subscription detail might be out of scope). You can also include a CloudWatch Dashboard summarizing key metrics for each environment. Optionally, include AWS CloudTrail (for auditing) or AWS Config rules to monitor compliance, if it fits the requirements.
+        9. **Secrets Management:** Use AWS Secrets Manager or SSM Parameter Store for sensitive data. For example, if the database requires a password, store that password in Secrets Manager (Terraform can create a random password and put it in a Secret). Reference this secret in the Terraform code (for example, pass the Secrets Manager ARN to the application module, or set an environment variable for Lambda from this secret). Ensure that the IAM policies allow the application (EC2 IAM role, ECS task role, or Lambda role) to read the secret. Do **not** expose sensitive values in plaintext in the Terraform output.
+        10. **Terraform Practices (data sources, count/for_each):** Use **Terraform data sources** to retrieve dynamic values (e.g., use `data "aws_region"` or `data "aws_caller_identity"` if needed, `data "aws_ami"` for latest AMIs, etc.). Use **count** or **for_each** for resources that can be parameterized: for instance, use a count to create multiple subnets/NAT Gateways for each AZ, or for_each on a list of AZs for resource creation, or looping through tags map to attach tags, etc., to avoid repetitive code.
+        11. **Outputs:** For each module (and possibly each environment), define outputs that might be useful (e.g., VPC ID, subnet IDs, ALB DNS name, DB endpoint, etc.), and ensure environment configurations capture these if needed for cross-module references (you might use outputs from the networking module as inputs to other modules like providing subnet IDs to the compute module).
+        12. **Organize & Document:** Structure the Terraform code in a clear, logical manner. Each module may have its own `main.tf` (and optionally `variables.tf` and `outputs.tf`). Each environment directory will have a `main.tf` that calls modules (and possibly a `providers.tf` and `variables.tf` for any environment-specific provider config or input variables). In the **output response**, clearly delineate sections by file path or module name for readability. **Include comments** in the HCL code to explain any tricky parts or to note where the user must insert their specific values (for example, `<YOUR_CERT_ARN_HERE>` for an ACM certificate, or a note to replace placeholder values for things like AMI IDs if a specific one is needed). Ensure no commentary outside of code/comments — the response should essentially be a set of Terraform configuration files that the user can use.
 
-        Parameter: VPC CIDR
-        Value: {vpc_cidr}
-        Required Implementation: Must be implemented in networking module with proper subnet calculations
+        **Output Instructions:** Provide the complete Terraform configuration as described. The output should consist of the Terraform code for all modules and the environment configurations, formatted as plain text (HCL syntax) with appropriate sections. Do not include extra explanation outside of the code; use comments within the code for any necessary notes. The goal is a ready-to-use Terraform configuration that reflects the requirements and best practices above.
 
-        Parameter: Subnet Configuration
-        Value: {subnet_configuration}
-        Required Implementation: Must create appropriate subnet tiers with proper CIDR allocations
-
-        Parameter: Availability Zones
-        Value: {availability_zones}
-        Required Implementation: Must be used to determine resource distribution for high availability
-
-        Parameter: Compute Type
-        Value: {compute_type}
-        Required Implementation: Must inform the specific compute module implementation
-
-        Parameter: Multi-AZ Deployment
-        Value: {is_multi_az}
-        Required Implementation: Must be used to determine resource distribution across AZs
-
-        Parameter: Serverless Architecture
-        Value: {is_serverless}
-        Required Implementation: Must determine whether to use Lambda/API Gateway vs traditional compute
-
-        Parameter: Load Balancer Type
-        Value: {load_balancer_type}
-        Required Implementation: Must implement the specific load balancer with proper configuration
-
-        Parameter: Logging Enabled
-        Value: {enable_logging}
-        Required Implementation: Must implement comprehensive logging for all resources if true
-
-        Parameter: Monitoring Enabled
-        Value: {enable_monitoring}
-        Required Implementation: Must implement CloudWatch metrics, alarms, and dashboards if true
-
-        Parameter: WAF Enabled
-        Value: {enable_waf}
-        Required Implementation: Must implement WAF with proper rule sets if true
-
-        Parameter: Resource Tags
-        Value: {tags}
-        Required Implementation: Must be applied to all resources via provider and explicit tagging
-
-        Parameter: Database Type
-        Value: {database_type}
-        Required Implementation: Must implement the specific database service with proper configuration
-
-        Parameter: Advanced Parameters
-        Value: {custom_parameters}
-        Required Implementation: Must be incorporated into relevant modules based on parameter context
-
-        Parameter: Region
-        Value: {region}
-        Required Implementation: Must be used in provider configuration and region-specific resources
-
-        TERRAFORM CODE STANDARDS:
-
-        1. Module Organization:
-        - Each module must have:
-            - main.tf - Core resources
-            - variables.tf - ALL inputs with validation blocks, descriptions, and constraints
-            - outputs.tf - ALL necessary outputs for cross-module references
-
-        2. Provider Configuration Example:
-        terraform {{
-            required_version = ">= 1.5.0"
-            required_providers {{
-            aws = {{
-                source  = "hashicorp/aws"
-                version = "~> 5.0"
-            }}
-            random = {{
-                source  = "hashicorp/random"
-                version = "~> 3.5"
-            }}
-            }}
-        }}
-        
-        provider "aws" {{
-            region = var.region
-            
-            default_tags {{
-            tags = var.tags
-            }}
-        }}
-
-        3. Variable Definitions Example:
-        variable "example_variable" {{
-            description = "Detailed description of the variable's purpose"
-            type        = string
-            default     = "default_value"  # Omit for required variables
-            
-            validation {{
-            condition     = length(var.example_variable) > 3
-            error_message = "The example_variable must be more than 3 characters."
-            }}
-        }}
-
-        4. Resource Naming:
-        - Use consistent naming convention: prefix-resource_type-purpose-environment
-        - Example: mycompany-ec2-webserver-prod
-
-        IMPLEMENTATION REQUIREMENTS:
-        EACH parameter from the INFRASTRUCTURE SPECIFICATIONS must be explicitly used as follows:
-
-        1. Networking Module:
-        - VPC with CIDR from {vpc_cidr}
-        - Subnets based on {subnet_configuration}:
-            - Public subnets with Internet Gateway
-            - Private application subnets with NAT Gateway
-            - Private database subnets with no internet access
-        - All subnets distributed across AZs from {availability_zones}
-        - Network ACLs with appropriate rules
-        - Flow logs if {enable_logging} is true
-        - Transit Gateway or VPC Peering if multiple VPCs needed
-
-        2. Compute Module based on {compute_type} and {is_serverless}:
-        - If {is_serverless} is true:
-            - Lambda functions with appropriate memory/timeout settings
-            - API Gateway with proper integration and auth
-            - Step Functions for orchestration if needed
-        - If {compute_type} includes EC2:
-            - Auto Scaling Groups with Launch Templates
-            - Instance Profile with least privilege IAM
-            - User data for bootstrapping
-            - SSM for management
-        - If {compute_type} includes ECS/EKS:
-            - Proper cluster configuration
-            - Task definitions/deployments
-            - Service discovery
-        - Multi-AZ distribution if {is_multi_az} is true
-
-        3. Load Balancing based on {load_balancer_type}:
-        - ALB for HTTP/HTTPS with:
-            - Proper target groups
-            - Health checks
-            - TLS policies
-            - WAF integration if {enable_waf} is true
-        - NLB for TCP/UDP with:
-            - Connection draining
-            - Cross-zone load balancing
-        - GWLB for network security appliances
-        - Integration with Route 53 for DNS
-
-        4. Database based on {database_type}:
-        - RDS:
-            - Multi-AZ if {is_multi_az} is true
-            - Parameter groups
-            - Option groups
-            - Automated backups
-            - Enhanced monitoring if {enable_monitoring} is true
-        - DynamoDB:
-            - Auto-scaling for read/write capacity
-            - Point-in-time recovery
-            - Global tables if needed
-        - ElastiCache:
-            - Redis vs Memcached based on use case
-            - Multi-AZ if {is_multi_az} is true
-
-        5. Security Implementation:
-        - IAM:
-            - Least privilege policies
-            - Roles with policy attachments
-            - Instance profiles
-        - Security Groups:
-            - Ingress/egress rules following least privilege
-            - Description for each rule
-        - KMS:
-            - Custom keys for sensitive data
-            - Proper key policies
-        - WAF if {enable_waf} is true:
-            - Core rule set
-            - Rate limiting
-            - Geo restrictions
-            - Custom rules based on requirements
-        - AWS Shield Advanced if needed
-
-        6. Monitoring and Logging if {enable_monitoring} or {enable_logging} is true:
-        - CloudWatch:
-            - Log groups for all services
-            - Metrics and alarms for key indicators
-            - Custom dashboards
-            - Log insights queries
-        - CloudTrail:
-            - Multi-region trail
-            - Log file validation
-            - S3 bucket for logs with proper policy
-        - X-Ray:
-            - Tracing for distributed systems
-            - Sampling rules
-
-        7. Environment Differentiation:
-        - Dev:
-            - Lower cost instance types
-            - Minimal redundancy
-            - Development-specific security rules
-        - Stage:
-            - Similar to prod but smaller scale
-            - Test data configurations
-        - Prod:
-            - Production-grade instances
-            - Full redundancy
-            - Strict security controls
-            - Complete monitoring
-
-        8. Tagging Strategy:
-        - Apply {tags} to all resources
-        - Additional required tags:
-            - Environment
-            - Owner
-            - CostCenter
-            - Application
-
-        ADVANCED CONFIGURATION:
-        1. State Management:
-        - S3 backend with versioning
-        - DynamoDB for state locking
-        - State file isolation per environment
-
-        2. Secret Management:
-        - AWS Secrets Manager for sensitive data
-        - No hardcoded secrets in Terraform files
-        - IAM roles for service access
-
-        3. Compliance Features:
-        - Resource encryption in-transit and at-rest
-        - VPC endpoints for private AWS service access
-        - GuardDuty integration
-        - AWS Config rules
-        - Security Hub integration
-
-        4. Operational Excellence:
-        - Auto-remediation with EventBridge rules
-        - Backup strategies for all data stores
-        - Disaster recovery configurations
-        - Cross-region resources if needed
-
-        5. Cost Optimization:
-        - Reserved Instances/Savings Plans declarations
-        - Auto Scaling policies
-        - Lifecycle policies for storage
-        - Resource scheduling for non-production
-
-        STRUCTURED OUTPUT FORMAT:
-        Your response must be structured according to the following model:
-
-        class TerraformComponent:
-            name: str              # The name of the component
-            main_tf: str           # The main.tf file content
-            output_tf: str         # The output.tf file content
-            variables_tf: str      # The variables.tf file content
-            
-        class TerraformOutput:
-            environments: List[TerraformComponent]  # dev, stage, prod environments
-            modules: List[TerraformComponent]       # Service modules
-
-        DELIVERABLES:
-        1. Generate all environments (dev, stage, prod) as TerraformComponent objects with:
-        - Proper module references in main.tf (e.g., source = "../../modules/lambda")
-        - Environment-specific variable values
-        - Appropriate output definitions
-
-        2. Generate all modules based on {services} as TerraformComponent objects with:
-        - Complete implementation of relevant AWS resources
-        - Proper variable definitions with validation
-        - All necessary outputs for cross-module references
-
-        3. Create additional modules as needed based on {requirements}
-
-        4. ALL parameters from INFRASTRUCTURE SPECIFICATIONS must be explicitly used in the appropriate TerraformComponent objects
-
-        5. ALL generated code must follow AWS Well-Architected Framework principles for:
-        - Security
-        - Reliability
-        - Operational Excellence
-        - Performance Efficiency
-        - Cost Optimization
-
-        Your task is to generate comprehensive, production-ready Terraform code that fully implements all specifications and follows all best practices outlined above. The code must be complete, production-grade, and ready for enterprise deployment.
+        Now, **generate the Terraform code** according to these specifications.
         """
         return terraform_prompt
     
