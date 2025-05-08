@@ -4,6 +4,7 @@ from src.infra_genie.state.infra_genie_state import InfraGenieState, TerraformCo
 from langchain_core.prompts import PromptTemplate
 from src.infra_genie.utils import constants as const
 import os
+import shutil
     
 
 class ProcessCodeNode:
@@ -12,15 +13,17 @@ class ProcessCodeNode:
         self.llm = llm
        
     def save_terraform_files(self, state: InfraGenieState):
-        
         """Save the generated Terraform files to disk."""
-    
+        
         base_dir = "output/src"
+        
+        # Delete existing directories before saving
+        if os.path.exists(base_dir):
+            shutil.rmtree(base_dir)
         
         os.makedirs(base_dir, exist_ok=True)
         
         for env in state.environments.environments:
-            
             env_dir = os.path.join(base_dir, "environments", env.name)
             os.makedirs(env_dir, exist_ok=True)
             
@@ -34,7 +37,6 @@ class ProcessCodeNode:
                 f.write(env.variables_tf)
         
         for module in state.modules.modules:
-        
             module_dir = os.path.join(base_dir, "modules", module.name)
             os.makedirs(module_dir, exist_ok=True)
             

@@ -129,6 +129,10 @@ class InfraGenieState(BaseModel):
     environments: EnvironmentList = Field(default_factory=EnvironmentList)
     user_input: Optional[UserInput] = None
     code_generated: bool = False
+    is_code_valid: bool = False
+    code_validation_error: Optional[str] = None
+    is_terraform_plan_valid: bool = False
+    terraform_plan_validation_error: Optional[str] = None
    
     
     

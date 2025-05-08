@@ -25,12 +25,12 @@ class CodeGeneratorNode:
         try:
             print("Trying structured code approach...")
                     
-            prompt_template = self.get_terraform_code_prompt()
+            prompt_template = self.get_terraform_code_prompt(state)
             logger.debug(f"Prompt Template: {prompt_template}")
             
             structured_prompt = PromptTemplate.from_template(prompt_template)
             
-            logger.debug(f"""Structured Prompt: {structured_prompt.to_json()}""")
+            logger.debug(f"Structured Prompt: {structured_prompt.to_json()}")
 
             input_dict = state.user_input.model_dump()
             logger.debug(f"User Input: {input_dict}")
@@ -72,7 +72,8 @@ class CodeGeneratorNode:
     
     
     
-    def get_terraform_code_prompt(self) -> str:
+    def get_terraform_code_prompt(self, state: InfraGenieState) -> str:
+        # Get the original prompt template
         terraform_prompt = """
         **Objective:** Generate a production-grade Terraform configuration (in HCL, not JSON) for an AWS infrastructure spanning development, staging, and production environments.
 
@@ -131,8 +132,26 @@ class CodeGeneratorNode:
 
         Now, **generate the Terraform code** according to these specifications.
         """
+
+        
+        # Check if code_validation_error exists and insert it into the prompt if it does
+        code_feedback = getattr(state, 'code_validation_error', None)
+        if code_feedback:
+            # Insert the feedback after the objective line but before the inputs section
+            objective_line = "**Objective:** Generate a production-grade Terraform configuration (in HCL, not JSON) for an AWS infrastructure spanning development, staging, and production environments."
+            feedback_section = f"\n**Incorporate the following code review feedback::** {code_feedback}\n"
+            
+            # Replace the objective line with objective + feedback
+            terraform_prompt = terraform_prompt.replace(
+                objective_line, 
+                objective_line + feedback_section
+            )
+        
         return terraform_prompt
     
     def is_code_generated(self, state: InfraGenieState):
         """Decide whether to use the fallback method based on the code generation status."""
         return state.code_generated
+    
+    def fix_code(self, state: InfraGenieState):
+        pass

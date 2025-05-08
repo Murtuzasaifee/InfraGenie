@@ -50,6 +50,9 @@ class GraphBuilder:
         self.graph_builder.add_node("fallback_generate_terraform_code", self.fallback_node.fallback_generate_terraform_code)
         self.graph_builder.add_node("save_code", self.process_code_node.save_terraform_files)
         self.graph_builder.add_node("code_validator", self.code_validator_node.validate_terraform_code)
+        self.graph_builder.add_node("creat_terraform_plan", self.code_validator_node.creat_terraform_plan)
+        self.graph_builder.add_node("fix_code", self.code_generation_node.fix_code)
+        
 
         ## Edges
         self.graph_builder.add_edge(START,"initialize_project")
@@ -67,34 +70,44 @@ class GraphBuilder:
         )
         
         self.graph_builder.add_edge("save_code","code_validator")
-        self.graph_builder.add_edge("code_validator",END)
+        self.graph_builder.add_conditional_edges(
+            "code_validator",
+            self.code_validator_node.code_validation_router,
+            {
+                "approved": "creat_terraform_plan",
+                "feedback": "fix_code"
+            }
+        )
+        self.graph_builder.add_edge("fix_code","generate_terraform_code")
+        self.graph_builder.add_edge("code_validator","creat_terraform_plan")
+        self.graph_builder.add_edge("creat_terraform_plan", END)
     
          
         
-    # def setup_graph(self):
-    #     """
-    #     Sets up the graph
-    #     """
-    #     self.build_infra_graph()
-    #     return self.graph_builder.compile(
-    #         interrupt_before=[
-    #             'get_user_requirements'
-    #             ],checkpointer=self.memory
-    #     )
-        
-             
     def setup_graph(self):
         """
         Sets up the graph
         """
         self.build_infra_graph()
-        graph =self.graph_builder.compile(
+        return self.graph_builder.compile(
             interrupt_before=[
-                'get_user_requirements',
-            ],checkpointer=self.memory
+                'get_user_requirements'
+                ],checkpointer=self.memory
         )
-        self.save_graph_image(graph)         
-        return graph
+        
+             
+    # def setup_graph(self):
+    #     """
+    #     Sets up the graph
+    #     """
+    #     self.build_infra_graph()
+    #     graph =self.graph_builder.compile(
+    #         interrupt_before=[
+    #             'get_user_requirements',
+    #         ],checkpointer=self.memory
+    #     )
+    #     self.save_graph_image(graph)         
+    #     return graph
     
     
     def save_graph_image(self,graph):
