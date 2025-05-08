@@ -133,7 +133,7 @@ class FallbackNode:
         - Custom Parameters: {custom_parameters}
 
         TERRAFORM BEST PRACTICES TO IMPLEMENT:
-        1. Use provider as aws for all the environments
+        1. ONLY Use provider as aws for all the environments
         2. Add region {region} for all the environments under the provider
         3. Create a modular design with proper service isolation
         4. Implement proper network segregation (public/private/database subnets)
