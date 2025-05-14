@@ -84,30 +84,30 @@ class GraphBuilder:
     
          
         
-    # def setup_graph(self):
-    #     """
-    #     Sets up the graph
-    #     """
-    #     self.build_infra_graph()
-    #     return self.graph_builder.compile(
-    #         interrupt_before=[
-    #             'get_user_requirements'
-    #             ],checkpointer=self.memory
-    #     )
-        
-             
     def setup_graph(self):
         """
         Sets up the graph
         """
         self.build_infra_graph()
-        graph =self.graph_builder.compile(
+        return self.graph_builder.compile(
             interrupt_before=[
-                'get_user_requirements',
-            ],checkpointer=self.memory
+                'get_user_requirements'
+                ],checkpointer=self.memory
         )
-        self.save_graph_image(graph)         
-        return graph
+        
+             
+    # def setup_graph(self):
+    #     """
+    #     Sets up the graph
+    #     """
+    #     self.build_infra_graph()
+    #     graph =self.graph_builder.compile(
+    #         interrupt_before=[
+    #             'get_user_requirements',
+    #         ],checkpointer=self.memory
+    #     )
+    #     self.save_graph_image(graph)         
+    #     return graph
     
     
     def save_graph_image(self,graph):

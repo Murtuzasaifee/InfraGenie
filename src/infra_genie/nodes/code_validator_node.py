@@ -119,37 +119,115 @@ class CodeValidatorNode:
             return "feedback"
     
     
-    def creat_terraform_plan(self, state: InfraGenieState):
+    def create_terraform_plan(self, state: InfraGenieState):
         """
-            Create Terraform Plan for the generated code
+        Runs terraform plan and returns structured results in JSON format
         """
-        pass
-        # try:
-        #     # Change directory to where Terraform code is generated
-        #     if not os.path.isdir(self.base_directory):
-        #         raise Exception(f"Terraform code directory '{self.base_directory}' does not exist.")
-
-        #     # Run 'terraform plan'
-        #     result = subprocess.run(
-        #         ["terraform", "plan"],
-        #         cwd=self.base_directory,
-        #         capture_output=True,
-        #         text=True
-        #     )
-
-        #     logger.debug(f"Terraform Plan Response: {result}")
-            
-        #     if result.returncode != 0:
-        #         state.is_terraform_plan_valid = False
-        #         state.terraform_plan_validation_error = result.stderr
-        #         raise Exception(f"Terraform plan failed:\n{result.stderr}")
-            
-        #     state.is_terraform_plan_valid = True   
-        #     return state
         
-        # except Exception as e:
-        #     state.is_terraform_plan_valid = False
-        #     raise Exception(f"Terraform Plan Error: {str(e)}")
+        try:
+            # Change directory to where Terraform code is generated
+            if not os.path.isdir(self.base_directory):
+                raise Exception(f"Terraform code directory '{self.base_directory}' does not exist.")
+                
+            # First ensure terraform is initialized
+            if not state.is_code_valid:
+                # Run validation first if not already done
+                state = self.validate_terraform_code(state)
+                
+            # Run terraform plan with JSON output
+            plan_result = subprocess.run(
+                ["terraform", "plan", "-out=tfplan", "-no-color"],
+                cwd=self.base_directory,
+                capture_output=True,
+                text=True
+            )
+            
+            logger.log(f"Terraform Plan: {plan_result}")
+            
+            # Check if plan was created successfully
+            if plan_result.returncode != 0:
+                state.plan_success = False
+                state.plan_error = "Failed to create Terraform plan"
+                
+                # Simple error extraction without complex parsing
+                if "Error:" in plan_result.stderr:
+                    import re
+                    error_match = re.search(r'Error: ([^\n]+)', plan_result.stderr)
+                    if error_match:
+                        error_message = f"Terraform plan failed: {error_match.group(1).strip()}"
+                        state.plan_error = error_message
+                
+                raise Exception(state.plan_error)
+                
+            # Convert the plan to JSON format for easy parsing
+            json_plan_result = subprocess.run(
+                ["terraform", "show", "-json", "tfplan"],
+                cwd=self.base_directory,
+                capture_output=True,
+                text=True
+            )
+            
+            logger.log(f"Terraform Plan Json: {json_plan_result}")
+            
+            if json_plan_result.returncode != 0:
+                state.plan_success = False
+                state.plan_error = "Failed to convert Terraform plan to JSON format"
+                raise Exception(state.plan_error)
+                
+            try:
+                plan_json = json.loads(json_plan_result.stdout)
+                
+                # Process the plan data into a more concise format for the LLM
+                simplified_plan = {
+                    "success": True,
+                    "resource_changes": [],
+                    "output_changes": []
+                }
+                
+                # Extract resource changes
+                if "resource_changes" in plan_json:
+                    for resource in plan_json["resource_changes"]:
+                        change = {
+                            "address": resource.get("address"),
+                            "action": resource.get("change", {}).get("actions", []),
+                            "type": resource.get("type", "")
+                        }
+                        simplified_plan["resource_changes"].append(change)
+                
+                # Extract output changes if present
+                if "output_changes" in plan_json:
+                    for output_name, output_change in plan_json["output_changes"].items():
+                        change = {
+                            "name": output_name,
+                            "action": output_change.get("actions", [])
+                        }
+                        simplified_plan["output_changes"].append(change)
+                
+                # Summary statistics
+                simplified_plan["summary"] = {
+                    "add": len([r for r in simplified_plan["resource_changes"] if "create" in r["action"]]),
+                    "change": len([r for r in simplified_plan["resource_changes"] if "update" in r["action"]]),
+                    "destroy": len([r for r in simplified_plan["resource_changes"] if "delete" in r["action"]])
+                }
+                
+                # Store both full and simplified plans
+                # state.plan_data = plan_json
+                # state.plan_summary = simplified_plan
+                # state.plan_success = True
+                logger.log(f"plan_json : {plan_json}")
+                logger.log(f"simplified_plan : {simplified_plan}")
+                
+                return state
+                
+            except json.JSONDecodeError:
+                state.plan_success = False
+                state.plan_error = "Failed to parse Terraform plan JSON output"
+                raise Exception(state.plan_error)
+        
+        except Exception as e:
+            state.plan_success = False
+            state.plan_error = str(e)
+            raise Exception(f"Terraform Plan Error: {str(e)}")
     
     
     def terraform_plan_router(self, state: InfraGenieState):
