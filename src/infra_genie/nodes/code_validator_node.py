@@ -142,7 +142,7 @@ class CodeValidatorNode:
                 text=True
             )
             
-            logger.log(f"Terraform Plan: {plan_result}")
+            logger.debug(f"Terraform Plan: {plan_result}")
             
             # Check if plan was created successfully
             if plan_result.returncode != 0:
@@ -167,7 +167,7 @@ class CodeValidatorNode:
                 text=True
             )
             
-            logger.log(f"Terraform Plan Json: {json_plan_result}")
+            logger.debug(f"Terraform Plan Json: {json_plan_result}")
             
             if json_plan_result.returncode != 0:
                 state.plan_success = False
@@ -214,8 +214,8 @@ class CodeValidatorNode:
                 # state.plan_data = plan_json
                 # state.plan_summary = simplified_plan
                 # state.plan_success = True
-                logger.log(f"plan_json : {plan_json}")
-                logger.log(f"simplified_plan : {simplified_plan}")
+                logger.debug(f"plan_json : {plan_json}")
+                logger.debug(f"simplified_plan : {simplified_plan}")
                 
                 return state
                 
