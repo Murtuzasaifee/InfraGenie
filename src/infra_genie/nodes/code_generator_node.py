@@ -375,7 +375,7 @@ class CodeGeneratorNode:
         if code_feedback:
             # Insert the feedback after the objective line but before the inputs section
             objective_line = "**Objective:** Generate a production-grade Terraform configuration (in HCL, not JSON) for an AWS infrastructure spanning development, staging, and production environments."
-            feedback_section = f"\n**Incorporate the following code review feedback::** {code_feedback}\n"
+            feedback_section = f"\n**Incorporate the following code review feedback :** {code_feedback}\n"
             
             # Replace the objective line with objective + feedback
             terraform_prompt = terraform_prompt.replace(

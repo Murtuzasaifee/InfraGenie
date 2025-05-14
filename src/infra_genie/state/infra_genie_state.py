@@ -133,6 +133,10 @@ class InfraGenieState(BaseModel):
     code_validation_feedback: Optional[str] = None
     is_terraform_plan_valid: bool = False
     terraform_plan_validation_feedback: Optional[str] = None
+    plan_data: Optional[str] = None
+    plan_summary: Optional[str] = None
+    plan_success: bool = False
+    plan_error: Optional[str] = None
    
     
     
