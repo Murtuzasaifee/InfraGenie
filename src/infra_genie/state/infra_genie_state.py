@@ -130,6 +130,9 @@ class InfraGenieState(BaseModel):
     user_input: Optional[UserInput] = None
     code_generated: bool = False
     is_code_valid: bool = False
+    code_review_comments: Optional[str] = None
+    code_review_feedback: Optional[str] = None
+    code_review_status: Optional[str] = None
     code_validation_feedback: Optional[str] = None
     is_terraform_plan_valid: bool = False
     terraform_plan_validation_feedback: Optional[str] = None
@@ -137,6 +140,8 @@ class InfraGenieState(BaseModel):
     plan_summary: Optional[str] = None
     plan_success: bool = False
     plan_error: Optional[str] = None
+    
+    
    
     
     

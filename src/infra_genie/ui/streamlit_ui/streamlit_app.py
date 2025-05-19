@@ -423,6 +423,20 @@ def load_app():
                     with st.expander("Requirements Summary"):
                         st.json(st.session_state.state["user_input"])
                 
+                
+                st.subheader("Review Code")
+                if st.button("✅ Proceed to Next Step"):
+                    st.success("✅ Code Validataion Started.")
+                    graph_response = graph_executor.graph_review_flow(
+                        st.session_state.task_id, status=None, feedback=None, review_type=const.REVIEW_CODE
+                    )
+                    st.session_state.state = graph_response["state"]
+                    st.session_state.stage = const.CODE_VALIDATION
+                    
+                    # Change tab to Code Validation (index 2)
+                    st.session_state.current_tab_index = 2
+                    st.rerun()
+            
             else:
                 st.info("Code generation pending or not reached yet.")
                 if st.button("Go back to Requirements"):
@@ -437,7 +451,7 @@ def load_app():
                 logger.info("Code validation stage reached.") 
                 
             else:
-                st.info("Design document generation pending or not reached yet.")
+                st.info("Code validation pending or not reached yet.")
                 
         # ---------------- Tab 4: Download Artifacts ----------------
         elif tab_index == 3:  # Download Artifacts

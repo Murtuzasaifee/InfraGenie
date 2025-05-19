@@ -59,6 +59,21 @@ class GraphExecutor:
         return self.update_and_resume_graph(saved_state,task_id,"get_user_requirements")
     
    
+   
+   ## ------- Generic Review Flow for all the feedback stages  ------- ##
+    def graph_review_flow(self, task_id, status, feedback, review_type):
+        saved_state = get_state_from_redis(task_id)
+        
+        if saved_state:
+            if review_type == const.REVIEW_CODE:
+                node_name = "code_review"
+                saved_state.next_node = const.CODE_VALIDATION
+            else:
+                raise ValueError(f"Unsupported review type: {review_type}")
+            
+        return self.update_and_resume_graph(saved_state,task_id,node_name)
+    
+    
     ## -------- Helper Method to handle the graph resume state ------- ##
     def update_and_resume_graph(self, saved_state,task_id, as_node):
         graph = self.graph
