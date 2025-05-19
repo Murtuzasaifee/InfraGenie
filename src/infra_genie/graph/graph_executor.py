@@ -65,9 +65,20 @@ class GraphExecutor:
         saved_state = get_state_from_redis(task_id)
         
         if saved_state:
-            if review_type == const.REVIEW_CODE:
+            if review_type == const.SAVE_CODE:
                 node_name = "save_code"
                 saved_state.next_node = const.CODE_VALIDATION
+                
+            elif review_type == const.REVISE_CODE:
+                node_name = "code_validator"
+                saved_state.code_validation_user_feedback = feedback
+                saved_state.code_review_status = status
+                saved_state.next_node = const.GENERATE_CODE
+                
+            elif review_type == const.CODE_VALIDATION:
+                node_name = "code_validator"
+                saved_state.next_node = const.GENERATE_PLAN
+                
             else:
                 raise ValueError(f"Unsupported review type: {review_type}")
             

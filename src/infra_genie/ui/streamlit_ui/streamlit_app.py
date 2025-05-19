@@ -427,7 +427,7 @@ def load_app():
             return
 
         # Create a radio button for tab selection instead of tabs
-        tab_options = ["Infra Requirement", "Code Generation", "Code Validation", "Download Artifacts"]
+        tab_options = ["Infra Requirement", "Code Generation", "Code Validation","Terraform Plan", "Download Artifacts"]
         current_tab_index = st.session_state.get("current_tab_index", 0)
         selected_tab = st.radio("Navigation", tab_options, index=current_tab_index, horizontal=True, label_visibility="collapsed")
         
@@ -499,7 +499,7 @@ def load_app():
                 if st.button("✅ Proceed to Next Step"):
                     st.success("✅ Code Validataion Started.")
                     graph_response = graph_executor.graph_review_flow(
-                        st.session_state.task_id, status=None, feedback=None, review_type=const.REVIEW_CODE
+                        st.session_state.task_id, status=None, feedback=None, review_type=const.SAVE_CODE
                     )
                     st.session_state.state = graph_response["state"]
                     st.session_state.stage = const.CODE_VALIDATION
@@ -534,25 +534,52 @@ def load_app():
                 feedback_text = st.text_area("Provide feedback for improving code (optional):")
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button("🔄 Re-generate Code"):
-                        st.info("Regenerating code...")
+                    if st.button("✅ Approve Code"):
+                        st.info("Generating Terraform Plan for approved code...")
+                        graph_response = graph_executor.graph_review_flow(
+                            st.session_state.task_id, status="approved", feedback=None,  review_type=const.CODE_VALIDATION
+                        )
+                        st.session_state.state = graph_response["state"]
+                        st.session_state.stage = const.GENERATE_PLAN
+                       
+                        # Change tab to Terraform Plan (index 3)
+                        st.session_state.current_tab_index = 3
                         st.rerun()
                         
                         
                 with col2:
-                    if st.button("✍️ Give Feedback"):
+                    if st.button("🔄 Re-generate Code"):
                         if not feedback_text.strip():
-                            st.warning("⚠️ Please enter feedback before submitting.")
-                            st.rerun()
+                            st.warning("✍️ Give Feedback. Please enter feedback before submitting.")
                         else:
                             st.info("🔄 Sending feedback to revise code.")
+                            graph_response = graph_executor.graph_review_flow(
+                                st.session_state.task_id, status="feedback", feedback=feedback_text.strip(),review_type=const.REVISE_CODE
+                            )
+                            st.session_state.state = graph_response["state"]
+                            st.session_state.stage = const.GENERATE_CODE
+                            # Change tab to Code Generation (index 1)
+                            st.session_state.current_tab_index = 1
                             st.rerun()
                 
             else:
                 st.info("Code validation pending or not reached yet.")
+       
+        # ---------------- Tab 4: Terraform Plan ----------------
+        elif tab_index == 3:  # Terraform Plan
+            st.header("Terraform Plan")
+            if st.session_state.state == const.GENERATE_PLAN:
                 
-        # ---------------- Tab 4: Download Artifacts ----------------
-        elif tab_index == 3:  # Download Artifacts
+                logger.info("Terraform Plan stage reached.")
+                
+                st.subheader("Terraform Plan")
+                
+            else:
+                st.info("No Terraform Plan generated yet.")
+                
+                         
+        # ---------------- Tab 5: Download Artifacts ----------------
+        elif tab_index == 4:  # Download Artifacts
             st.header("Download Artifacts")
             if st.session_state.state == const.DOWNLOAD_ARTIFACTS:
                 

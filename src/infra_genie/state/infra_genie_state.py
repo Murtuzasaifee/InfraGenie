@@ -131,11 +131,15 @@ class InfraGenieState(BaseModel):
     
     code_generated: bool = False
     is_code_valid: bool = False
+    
     code_validation_json: Optional[str] = None
     code_validation_feedback: Optional[str] = None
+    
+    code_validation_user_feedback: Optional[str] = None
+    code_review_status: Optional[str] = None
+    
     is_terraform_plan_valid: bool = False
     terraform_plan_validation_feedback: Optional[str] = None
-    
     plan_data: Optional[str] = None
     plan_summary: Optional[str] = None
     plan_success: bool = False
