@@ -42,6 +42,7 @@ class CodeValidatorNode:
             logger.debug(f"Terraform Init Response: {init_result}")
             logger.debug("-----------------------------------------")
             logger.debug(f"Terraform Validate Response: {validate_result}")
+            state.code_validation_json = validate_result.stdout
             
             # If init succeeded, proceed to validation results
             if init_result.returncode == 0:

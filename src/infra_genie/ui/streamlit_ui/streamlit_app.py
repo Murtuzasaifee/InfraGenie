@@ -302,7 +302,76 @@ def read_all_generated_code():
                         code_output[f"{root}/{section.name}"] = files
     return code_output
 
+
+def display_terraform_validation(validation_json):
+    """
+    Displays Terraform validation results in a user-friendly format
+    """
+    st.subheader("Terraform Validation Results")
     
+    # Create columns for a more organized layout
+    col1, col2 = st.columns([1,2])
+    
+    with col1:
+        # Display validation status with appropriate icons
+        if validation_json.get('valid', False):
+            st.success("✅ Terraform configuration is valid")
+        else:
+            st.error(f"❌ Terraform configuration has {validation_json.get('error_count', 0)} error(s)")
+            
+        # Display warning count if any
+        if validation_json.get('warning_count', 0) > 0:
+            st.warning(f"⚠️ {validation_json.get('warning_count')} warning(s)")
+    
+    # Display detailed diagnostics
+    if validation_json.get('diagnostics'):
+        st.subheader("Validation Details")
+        
+        for idx, diagnostic in enumerate(validation_json.get('diagnostics', [])):
+            with st.expander(f"Issue #{idx+1}: {diagnostic.get('summary', 'Unknown issue')}"):
+                
+                # Create two columns within the expander
+                detail_col1, detail_col2 = st.columns([1, 1])
+                
+                with detail_col1:
+                    st.markdown(f"**Severity:** {diagnostic.get('severity', 'unknown')}")
+                    st.markdown(f"**Summary:** {diagnostic.get('summary', 'No summary available')}")
+                    st.markdown(f"**Detail:** {diagnostic.get('detail', 'No details available')}")
+                
+                with detail_col2:
+                    if 'range' in diagnostic:
+                        st.markdown("**Location:**")
+                        st.markdown(f"File: `{diagnostic['range'].get('filename', 'unknown')}`")
+                        st.markdown(f"Line: {diagnostic['range'].get('start', {}).get('line', 'unknown')}")
+                
+                # Display code snippet if available
+                if 'snippet' in diagnostic:
+                    st.markdown("**Code Snippet:**")
+                    
+                    # Create a block showing context (e.g., module "ec2")
+                    if diagnostic['snippet'].get('context'):
+                        st.code(diagnostic['snippet'].get('context'), language="hcl")
+                    
+                    # Show the problematic code with highlighting
+                    if diagnostic['snippet'].get('code'):
+                        st.code(diagnostic['snippet'].get('code'), language="hcl")
+                        
+                    # Show guidance for fixing the issue
+                    if diagnostic.get('severity') == "error" and diagnostic.get('summary') == "Unsupported argument":
+                        st.markdown("**Suggested Fix:**")
+                        st.markdown("This argument is not supported in this context. Check the module documentation for valid arguments.")
+
+def display_generated_code():
+    all_code = read_all_generated_code()
+    if not all_code:
+        st.warning("No Terraform code files found.")
+    else:
+        for section, files in all_code.items():
+            st.subheader(f"🗂️ {section}")
+            for filename, content in files.items():
+                with st.expander(f"📄 {filename}"):
+                    st.code(content, language="hcl")
+                                
 ## Main Entry Point    
 def load_app():
     """
@@ -407,16 +476,9 @@ def load_app():
                 logger.info("Code generation stage reached.")
                 
                 st.info("Generated Terraform code output is shown below:")
-
-                all_code = read_all_generated_code()
-                if not all_code:
-                    st.warning("No Terraform code files found.")
-                else:
-                    for section, files in all_code.items():
-                        st.subheader(f"🗂️ {section}")
-                        for filename, content in files.items():
-                            with st.expander(f"📄 {filename}"):
-                                st.code(content, language="hcl")
+                
+                # Display Generated Code
+                display_generated_code()
                 
                 # Display requirements summary for reference
                 if "user_input" in st.session_state.state:
@@ -449,6 +511,30 @@ def load_app():
             if st.session_state.stage == const.CODE_VALIDATION:
                 
                 logger.info("Code validation stage reached.") 
+                
+                # Display validation results
+                code_validation_json = json.loads(st.session_state.state["code_validation_json"])
+                display_terraform_validation(code_validation_json)
+                
+                # Display Generated Code
+                st.subheader("Generated Code ")
+                display_generated_code()
+                
+                ## Review Section
+                st.subheader("Actions")
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    if st.button("🔄 Re-generate Code"):
+                        st.info("Regenerating code...")
+                        ## TODO Go to regeneration with user feedback as well
+                        st.rerun()
+                        
+                with col2:
+                    if st.button("➡️ Proceed with Warnings"):
+                        st.warning("Proceeding with warnings...")
+                        ## TODO Go to next stage of Terraform Plan
+                        st.rerun()
                 
             else:
                 st.info("Code validation pending or not reached yet.")
