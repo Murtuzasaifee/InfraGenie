@@ -328,7 +328,16 @@ def display_terraform_validation(validation_json):
         st.subheader("Validation Details")
         
         for idx, diagnostic in enumerate(validation_json.get('diagnostics', [])):
-            with st.expander(f"Issue #{idx+1}: {diagnostic.get('summary', 'Unknown issue')}"):
+            issue_summary = diagnostic.get('summary', 'Unknown issue')
+            severity = diagnostic.get('severity', 'error')
+            
+            # Use different icon based on severity
+            icon = "🔴" if severity == "error" else "🟠" if severity == "warning" else "ℹ️"
+            
+            # Create bold text using markdown syntax with emoji
+            expander_label = f"{icon} **Issue #{idx+1}:** **{issue_summary}**"
+            
+            with st.expander(expander_label):
                 
                 # Create two columns within the expander
                 detail_col1, detail_col2 = st.columns([1, 1])
@@ -522,19 +531,22 @@ def load_app():
                 
                 ## Review Section
                 st.subheader("Actions")
+                feedback_text = st.text_area("Provide feedback for improving code (optional):")
                 col1, col2 = st.columns(2)
-                
                 with col1:
                     if st.button("🔄 Re-generate Code"):
                         st.info("Regenerating code...")
-                        ## TODO Go to regeneration with user feedback as well
                         st.rerun()
                         
+                        
                 with col2:
-                    if st.button("➡️ Proceed with Warnings"):
-                        st.warning("Proceeding with warnings...")
-                        ## TODO Go to next stage of Terraform Plan
-                        st.rerun()
+                    if st.button("✍️ Give Feedback"):
+                        if not feedback_text.strip():
+                            st.warning("⚠️ Please enter feedback before submitting.")
+                            st.rerun()
+                        else:
+                            st.info("🔄 Sending feedback to revise code.")
+                            st.rerun()
                 
             else:
                 st.info("Code validation pending or not reached yet.")
