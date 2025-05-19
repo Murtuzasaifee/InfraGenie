@@ -66,7 +66,7 @@ class GraphExecutor:
         
         if saved_state:
             if review_type == const.REVIEW_CODE:
-                node_name = "code_review"
+                node_name = "save_code"
                 saved_state.next_node = const.CODE_VALIDATION
             else:
                 raise ValueError(f"Unsupported review type: {review_type}")

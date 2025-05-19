@@ -104,7 +104,9 @@ class GraphBuilder:
         graph =self.graph_builder.compile(
             interrupt_before=[
                 'get_user_requirements',
-                'save_code',
+                'save_code'
+            ],
+            interrupt_after=[
                 'code_validator'
             ],checkpointer=self.memory
         )
