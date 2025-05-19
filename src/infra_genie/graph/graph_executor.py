@@ -69,15 +69,11 @@ class GraphExecutor:
                 node_name = "save_code"
                 saved_state.next_node = const.CODE_VALIDATION
                 
-            elif review_type == const.REVISE_CODE:
+            elif review_type in [const.REVISE_CODE, const.CODE_VALIDATION]:
                 node_name = "code_validator"
                 saved_state.code_validation_user_feedback = feedback
                 saved_state.code_review_status = status
-                saved_state.next_node = const.GENERATE_CODE
-                
-            elif review_type == const.CODE_VALIDATION:
-                node_name = "code_validator"
-                saved_state.next_node = const.GENERATE_PLAN
+                saved_state.next_node = const.GENERATE_CODE if status == "feedback" else const.GENERATE_PLAN
                 
             else:
                 raise ValueError(f"Unsupported review type: {review_type}")
