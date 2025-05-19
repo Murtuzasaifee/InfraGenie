@@ -80,7 +80,7 @@ InfraGenie is an AI-powered infrastructure code generator that uses LLMs to crea
 
 1. Start the application:
    ```bash
-   python main.py
+   streamlit run main.py
    ```
 
 2. Open your browser and navigate to:
