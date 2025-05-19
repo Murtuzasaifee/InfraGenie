@@ -7,6 +7,7 @@ from src.infra_genie.nodes.fallback_node import FallbackNode
 from src.infra_genie.nodes.project_node import ProjectNode
 from src.infra_genie.nodes.code_process_node import ProcessCodeNode
 from src.infra_genie.nodes.code_validator_node import CodeValidatorNode
+from langchain_core.runnables.graph import CurveStyle
 
     
 class GraphBuilder:
@@ -79,41 +80,41 @@ class GraphBuilder:
             }
         )
         self.graph_builder.add_edge("fix_code","generate_terraform_code")
-        self.graph_builder.add_edge("code_validator","creat_terraform_plan")
         self.graph_builder.add_edge("creat_terraform_plan", END)
     
          
         
-    def setup_graph(self):
-        """
-        Sets up the graph
-        """
-        self.build_infra_graph()
-        return self.graph_builder.compile(
-            interrupt_before=[
-                'get_user_requirements'
-                ],checkpointer=self.memory
-        )
-        
-             
     # def setup_graph(self):
     #     """
     #     Sets up the graph
     #     """
     #     self.build_infra_graph()
-    #     graph =self.graph_builder.compile(
+    #     return self.graph_builder.compile(
     #         interrupt_before=[
-    #             'get_user_requirements',
-    #         ],checkpointer=self.memory
+    #             'get_user_requirements'
+    #             ],checkpointer=self.memory
     #     )
-    #     self.save_graph_image(graph)         
-    #     return graph
+        
+             
+    def setup_graph(self):
+        """
+        Sets up the graph
+        """
+        self.build_infra_graph()
+        graph =self.graph_builder.compile(
+            interrupt_before=[
+                'get_user_requirements',
+            ],checkpointer=self.memory
+        )
+        self.save_graph_image(graph)         
+        return graph
     
     
     def save_graph_image(self,graph):
         # Generate the PNG image
         img_data = graph.get_graph().draw_mermaid_png(
-            draw_method=MermaidDrawMethod.API
+            draw_method=MermaidDrawMethod.API,
+            curve_style= CurveStyle.NATURAL
             )
 
         # Save the image to a file
