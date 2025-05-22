@@ -21,9 +21,8 @@ class CodeValidatorNode:
             # Change directory to where Terraform code is generated
             if not os.path.isdir(self.base_directory):
                 raise Exception(f"Terraform code directory '{self.base_directory}' does not exist.")
-          
             
-            # First, we need to run init (but we don't need to parse its complex output)
+            # First, run terraform init
             init_result = subprocess.run(
                 ["terraform", "init", "-no-color"],
                 cwd=self.base_directory,
@@ -31,7 +30,7 @@ class CodeValidatorNode:
                 text=True
             )
             
-              # Run 'terraform validate' with JSON output 
+            # Run terraform validate with JSON output 
             validate_result = subprocess.run(
                 ["terraform", "validate", "-json"],
                 cwd=self.base_directory,
@@ -46,8 +45,6 @@ class CodeValidatorNode:
             
             # If init succeeded, proceed to validation results
             if init_result.returncode == 0:
-                # Parse the JSON output from validate
-                
                 try:
                     validation_data = json.loads(validate_result.stdout)
                     logger.debug(f"Terraform Validation Json: {validation_data}")
@@ -56,23 +53,34 @@ class CodeValidatorNode:
                         state.is_code_valid = True
                         state.code_validation_feedback = "Terraform code is valid"
                     else:
-                        # Extract clean error messages from the structured data
+                        # Extract ALL errors from diagnostics
                         diagnostics = validation_data.get("diagnostics", [])
                         if diagnostics:
-                            # Get the first error with its location
-                            error = diagnostics[0]
-                            message = error.get("summary", "Unknown error")
-                            message += f": {error.get("detail", "Unknown error")}"
+                            error_messages = []
                             
-                            # Add location info if available
-                            if "range" in error and "filename" in error["range"]:
-                                filename = error["range"]["filename"]
-                                start_line = error["range"].get("start", {}).get("line", 0)
-                                message += f" in {filename} (line {start_line})"
+                            for error in diagnostics:
+                                # Build error message
+                                message = error.get("summary", "Unknown error")
+                                detail = error.get("detail", "")
+                                if detail:
+                                    message += f": {detail}"
                                 
+                                # Add location info if available
+                                if "range" in error and "filename" in error["range"]:
+                                    filename = error["range"]["filename"]
+                                    start_line = error["range"].get("start", {}).get("line", "unknown")
+                                    message += f" (File: {filename}, Line: {start_line})"
+                                
+                                error_messages.append(message)
+                            
+                            # Join all errors with newlines
+                            all_errors = "\n".join(error_messages)
+                            error_count = len(error_messages)
+                            
                             state.is_code_valid = False
-                            state.code_validation_feedback = message
-                            logger.error(f"Terraform validation failed: {message}")
+                            state.code_validation_feedback = f"Found {error_count} validation errors:\n\n{all_errors}"
+                            logger.error(f"Terraform validation failed with {error_count} errors")
+                            logger.error(f"Terraform validation feedback:\n{ state.code_validation_feedback}")
                             
                         else:
                             state.is_code_valid = False
@@ -80,21 +88,19 @@ class CodeValidatorNode:
                             logger.error("Terraform validation failed with unspecified errors")
                             
                 except json.JSONDecodeError:
-                    # If JSON parsing fails, we have a different kind of error
+                    # If JSON parsing fails
                     state.is_code_valid = False
                     state.code_validation_feedback = "Failed to parse Terraform validation output"
                     logger.error("Failed to parse Terraform validation output")
             else:
-                # Init failed, provide a clean error message
+                # Init failed
                 state.is_code_valid = False
                 
-                # Get a clean, LLM-friendly error message
+                # Get clean error message from init failure
                 error_message = "Terraform initialization failed"
                 
-                # Add the most relevant part of the error output
                 if "Error:" in init_result.stderr:
                     import re
-                    # Find the main error message after "Error:"
                     error_match = re.search(r'Error: ([^\n]+)', init_result.stderr)
                     if error_match:
                         error_message += f": {error_match.group(1).strip()}"
@@ -144,21 +150,6 @@ class CodeValidatorNode:
             
             logger.debug(f"Terraform Plan: {plan_result}")
             
-            # Check if plan was created successfully
-            if plan_result.returncode != 0:
-                state.plan_success = False
-                state.plan_error = "Failed to create Terraform plan"
-                
-                # Simple error extraction without complex parsing
-                if "Error:" in plan_result.stderr:
-                    import re
-                    error_match = re.search(r'Error: ([^\n]+)', plan_result.stderr)
-                    if error_match:
-                        error_message = f"Terraform plan failed: {error_match.group(1).strip()}"
-                        state.plan_error = error_message
-                
-                raise Exception(state.plan_error)
-                
             # Convert the plan to JSON format for easy parsing
             json_plan_result = subprocess.run(
                 ["terraform", "show", "-json", "tfplan"],
@@ -169,60 +160,7 @@ class CodeValidatorNode:
             
             logger.debug(f"Terraform Plan Json: {json_plan_result}")
             
-            if json_plan_result.returncode != 0:
-                state.plan_success = False
-                state.plan_error = "Failed to convert Terraform plan to JSON format"
-                raise Exception(state.plan_error)
-                
-            try:
-                plan_json = json.loads(json_plan_result.stdout)
-                
-                # Process the plan data into a more concise format for the LLM
-                simplified_plan = {
-                    "success": True,
-                    "resource_changes": [],
-                    "output_changes": []
-                }
-                
-                # Extract resource changes
-                if "resource_changes" in plan_json:
-                    for resource in plan_json["resource_changes"]:
-                        change = {
-                            "address": resource.get("address"),
-                            "action": resource.get("change", {}).get("actions", []),
-                            "type": resource.get("type", "")
-                        }
-                        simplified_plan["resource_changes"].append(change)
-                
-                # Extract output changes if present
-                if "output_changes" in plan_json:
-                    for output_name, output_change in plan_json["output_changes"].items():
-                        change = {
-                            "name": output_name,
-                            "action": output_change.get("actions", [])
-                        }
-                        simplified_plan["output_changes"].append(change)
-                
-                # Summary statistics
-                simplified_plan["summary"] = {
-                    "add": len([r for r in simplified_plan["resource_changes"] if "create" in r["action"]]),
-                    "change": len([r for r in simplified_plan["resource_changes"] if "update" in r["action"]]),
-                    "destroy": len([r for r in simplified_plan["resource_changes"] if "delete" in r["action"]])
-                }
-                
-                # Store both full and simplified plans
-                # state.plan_data = plan_json
-                # state.plan_summary = simplified_plan
-                # state.plan_success = True
-                logger.debug(f"plan_json : {plan_json}")
-                logger.debug(f"simplified_plan : {simplified_plan}")
-                
-                return state
-                
-            except json.JSONDecodeError:
-                state.plan_success = False
-                state.plan_error = "Failed to parse Terraform plan JSON output"
-                raise Exception(state.plan_error)
+            return state
         
         except Exception as e:
             state.plan_success = False

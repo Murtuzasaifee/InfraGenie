@@ -364,9 +364,9 @@ class CodeGeneratorNode:
         
         ### Check if code_validation_error exists and insert it into the prompt if it does
         
-        # code_feedback = getattr(state, 'code_validation_feedback', None) ## feedback from the code validator
+        code_feedback = getattr(state, 'code_validation_feedback', None) ## feedback from the code validator
         
-        code_feedback = getattr(state, 'code_validation_user_feedback', None) ## feedback from the user
+        # code_feedback = getattr(state, 'code_validation_user_feedback', None) ## feedback from the user
         
         if code_feedback:
             # Insert the feedback after the objective line but before the inputs section
