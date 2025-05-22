@@ -149,21 +149,30 @@ class CodeValidatorNode:
             )
             
             logger.debug(f"Terraform Plan: {plan_result}")
+            logger.success(f"Terraform Plan Stdout: {plan_result.stdout}")
+            logger.error(f"Terraform Plan stderr: {plan_result.stderr}")
             
-            # Convert the plan to JSON format for easy parsing
-            json_plan_result = subprocess.run(
-                ["terraform", "show", "-json", "tfplan"],
-                cwd=self.base_directory,
-                capture_output=True,
-                text=True
-            )
-            
-            logger.debug(f"Terraform Plan Json: {json_plan_result}")
+            if plan_result.returncode == 0:
+                state.is_plan_success = True
+                
+                # Convert the plan to JSON format for easy parsing
+                json_plan_result = subprocess.run(
+                    ["terraform", "show", "-json", "tfplan"],
+                    cwd=self.base_directory,
+                    capture_output=True,
+                    text=True
+                )
+                logger.success(f"Terraform Plan Json: {json_plan_result}")
+                state.plan_summary = "" ## TODO
+                
+            else:
+                state.is_plan_success = False
+                state.plan_error = plan_result.stderr
             
             return state
         
         except Exception as e:
-            state.plan_success = False
+            state.is_plan_success = False
             state.plan_error = str(e)
             raise Exception(f"Terraform Plan Error: {str(e)}")
     
@@ -172,6 +181,8 @@ class CodeValidatorNode:
         """
             Evaluates terraform plan
         """
-        # return state.get("is_terraform_plan_valid", False)  # default to False
-        pass
+        if state.is_plan_success:
+            return "approved"
+        else:
+            return "feedback"
     

@@ -79,43 +79,53 @@ class GraphBuilder:
                 "feedback": "fix_code"
             }
         )
+        
         self.graph_builder.add_edge("fix_code","generate_terraform_code")
-        self.graph_builder.add_edge("create_terraform_plan", END)
-    
-         
         
-    def setup_graph(self):
-        """
-        Sets up the graph
-        """
-        self.build_infra_graph()
-        return self.graph_builder.compile(
-           interrupt_before=[
-                'get_user_requirements'
-            ],
-            interrupt_after=[
-                'save_code',
-                'code_validator'
-            ],checkpointer=self.memory
+        self.graph_builder.add_conditional_edges(
+            "create_terraform_plan",
+            self.code_validator_node.terraform_plan_router,
+            {
+                "approved": END,
+                "feedback": "fix_code"
+            }
         )
+    
         
-             
     # def setup_graph(self):
     #     """
     #     Sets up the graph
     #     """
     #     self.build_infra_graph()
-    #     graph =self.graph_builder.compile(
-    #         interrupt_before=[
+    #     return self.graph_builder.compile(
+    #        interrupt_before=[
     #             'get_user_requirements'
     #         ],
     #         interrupt_after=[
     #             'save_code',
-    #             'code_validator'
+    #             'code_validator',
+    #             'create_terraform_plan'
     #         ],checkpointer=self.memory
     #     )
-    #     self.save_graph_image(graph)         
-    #     return graph
+        
+             
+    def setup_graph(self):
+        """
+        Sets up the graph
+        """
+        self.build_infra_graph()
+        graph =self.graph_builder.compile(
+            interrupt_before=[
+                'get_user_requirements'
+            ],
+            interrupt_after=[
+                'save_code',
+                'code_validator',
+                'create_terraform_plan'
+            ],checkpointer=self.memory
+        )
+        self.save_graph_image(graph)         
+        return graph
     
     
     def save_graph_image(self,graph):
