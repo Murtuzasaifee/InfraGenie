@@ -144,15 +144,13 @@ class FallbackNode:
 
         ENVIRONMENT CONFIGURATIONS:
         - dev: minimal capacity and redundancy
-        - stage: medium capacity with good redundancy
-        - prod: high capacity with full redundancy and auto-scaling
 
-        I need you to generate Terraform (HCL) code for the following environments and modules.
-        For each environment (dev, stage, prod), create three files:
+        I need you to generate Terraform (HCL) code for the dev environment and modules.
+        For dev environment create three files:
         1. main.tf - with the module configurations
         2. variables.tf - with input variables
         3. output.tf - with output values
-        In each environment configurations (dev, stage, prod), in their main.tf file give the module path as ex: (source = "../../modules/lambda")
+        In dev environment configurations, in their main.tf file give the module path as ex: (source = "../../modules/lambda")
 
         For each required module based on the services list ({services}) and {requirements}, create:
         1. main.tf - with the resource definitions

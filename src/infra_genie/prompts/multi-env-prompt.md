@@ -1,80 +1,5 @@
-from loguru import logger
-from src.infra_genie.state.infra_genie_state import InfraGenieState, TerraformOutput, TerraformComponent
-from langchain_core.prompts import PromptTemplate
-from src.infra_genie.utils import constants as const
-from src.infra_genie.utils.Utility import Utility
-    
-
-class CodeGeneratorNode:
-    
-    def __init__(self, llm):
-        self.llm = llm
-        self.utility = Utility()
-       
-    
-    def generate_terraform_code(self, state: InfraGenieState):
-        
-        """
-        Generate Terraform code with structured output.
-        
-        """
-
-        if not state.user_input:
-            raise ValueError("User input is required to generate Terraform code")
-        
-        try:
-            print("Trying structured code approach...")
-                    
-            prompt_template = self.get_terraform_code_prompt(state)
-            logger.debug(f"Prompt Template: {prompt_template}")
-            
-            structured_prompt = PromptTemplate.from_template(prompt_template)
-            
-            logger.debug(f"Structured Prompt: {structured_prompt.to_json()}")
-
-            input_dict = state.user_input.model_dump()
-            logger.debug(f"User Input: {input_dict}")
-
-            structured_llm = self.llm.with_structured_output(TerraformOutput)
-            structured_chain = structured_prompt | structured_llm
-    
-            result = structured_chain.invoke(input_dict)
-            
-            logger.debug(f"Result: {result}")
-            
-            # Transfer the structured result to the state
-            for env in result.environments:
-                state.environments.environments.append(TerraformComponent(
-                    name=env.name,
-                    main_tf=env.main_tf,
-                    output_tf=env.output_tf,
-                    variables_tf=env.variables_tf
-                ))
-            
-            for module in result.modules:
-                state.modules.modules.append(TerraformComponent(
-                    name=module.name,
-                    main_tf=module.main_tf,
-                    output_tf=module.output_tf,
-                    variables_tf=module.variables_tf
-                ))
-            
-            print(f"Successfully generated {len(state.environments.environments)} environments and {len(state.modules.modules)} modules using structured output")
-            state.code_generated = True
-            state.next_node = const.CODE_VALIDATION
-            
-        except Exception as primary_error:
-            print(f"Structured output approach failed: {primary_error}")
-            state.code_generated = False
-            state.next_node = const.FALLBACK_GENERATION
-        
-        return state
-    
-    
-    
-    def get_terraform_code_prompt(self, state: InfraGenieState) -> str:
-        terraform_prompt = """
-        **Objective:** Generate a production-grade Terraform configuration (in HCL, not JSON) for an AWS infrastructure spanning development environment.
+ terraform_prompt = """
+        **Objective:** Generate a production-grade Terraform configuration (in HCL, not JSON) for an AWS infrastructure spanning development, staging, and production environments.
 
         USER REQUIREMENTS:
         {requirements}
@@ -283,7 +208,15 @@ class CodeGeneratorNode:
             - Lower cost instance types
             - Minimal redundancy
             - Development-specific security rules
-       
+        - Stage:
+            - Similar to prod but smaller scale
+            - Test data configurations
+        - Prod:
+            - Production-grade instances
+            - Full redundancy
+            - Strict security controls
+            - Complete monitoring
+
         8. Tagging Strategy:
         - Apply {tags} to all resources
         - Additional required tags:
@@ -332,11 +265,11 @@ class CodeGeneratorNode:
             variables_tf: str      # The variables.tf file content
             
         class TerraformOutput:
-            environments: List[TerraformComponent]  # dev environment
+            environments: List[TerraformComponent]  # dev, stage, prod environments
             modules: List[TerraformComponent]       # Service modules
 
         DELIVERABLES:
-        1. Generate only dev environment as TerraformComponent objects with:
+        1. Generate all environments (dev, stage, prod) as TerraformComponent objects with:
         - Proper module references in main.tf (e.g., source = "../../modules/lambda")
         - Environment-specific variable values
         - Appropriate output definitions
@@ -359,31 +292,3 @@ class CodeGeneratorNode:
 
         Your task is to generate comprehensive, production-ready Terraform code that fully implements all specifications and follows all best practices outlined above. The code must be complete, production-grade, and ready for enterprise deployment.
         """
-
-
-        
-        ### Check if code_validation_error exists and insert it into the prompt if it does
-        
-        # code_feedback = getattr(state, 'code_validation_feedback', None) ## feedback from the code validator
-        
-        code_feedback = getattr(state, 'code_validation_user_feedback', None) ## feedback from the user
-        
-        if code_feedback:
-            # Insert the feedback after the objective line but before the inputs section
-            objective_line = "**Objective:** Generate a production-grade Terraform configuration (in HCL, not JSON) for an AWS infrastructure spanning development environment."
-            feedback_section = f"\n**Incorporate the following terraform initialization feedback :** {code_feedback}\n"
-            
-            # Replace the objective line with objective + feedback
-            terraform_prompt = terraform_prompt.replace(
-                objective_line, 
-                objective_line + feedback_section
-            )
-        
-        return terraform_prompt
-    
-    def is_code_generated(self, state: InfraGenieState):
-        """Decide whether to use the fallback method based on the code generation status."""
-        return state.code_generated
-    
-    def fix_code(self, state: InfraGenieState):
-        pass

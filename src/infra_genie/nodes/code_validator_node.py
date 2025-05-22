@@ -132,8 +132,7 @@ class CodeValidatorNode:
                 
             # First ensure terraform is initialized
             if not state.is_code_valid:
-                # Run validation first if not already done
-                state = self.validate_terraform_code(state)
+                raise Exception("Terraform code is not valid")
                 
             # Run terraform plan with JSON output
             plan_result = subprocess.run(
