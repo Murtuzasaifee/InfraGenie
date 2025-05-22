@@ -495,9 +495,9 @@ def load_app():
                         st.json(st.session_state.state["user_input"])
                 
                 
-                st.subheader("Review Code")
-                if st.button("✅ Proceed to Next Step"):
-                    st.success("✅ Code Validataion Started.")
+                st.subheader("Actions")
+                if st.button("Proceed to Validation"):
+                    st.success("Code Validataion Started.")
                     graph_response = graph_executor.graph_review_flow(
                         st.session_state.task_id, status=None, feedback=None, review_type=const.SAVE_CODE
                     )
@@ -530,7 +530,7 @@ def load_app():
                 display_generated_code()
                 
                 ## Review Section
-                st.subheader("Actions")
+                st.subheader("Review Code")
                 feedback_text = st.text_area("Provide feedback for improving code (optional):")
                 col1, col2 = st.columns(2)
                 with col1:
