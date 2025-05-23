@@ -146,7 +146,7 @@ def load_user_input_ui():
             "ManagedBy": "Terraform",
             "Owner": "DevOps"
         },
-        "requirements": "",
+        "requirements": "Need terraform for the Java based application with autoscaling and load balancer",
         "custom_parameters": {}
     }
 
