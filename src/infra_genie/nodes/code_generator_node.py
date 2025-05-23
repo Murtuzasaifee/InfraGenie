@@ -74,7 +74,14 @@ class CodeGeneratorNode:
     
     def get_terraform_code_prompt(self, state: InfraGenieState) -> str:
         terraform_prompt = """
-        **Objective:** Generate a production-grade Terraform configuration (in HCL, not JSON) for an AWS infrastructure spanning development environment.
+        **Objective:** Generate a production-grade, VALIDATION-COMPLIANT Terraform configuration (in HCL, not JSON) for an AWS infrastructure spanning development environment.
+
+        **CRITICAL VALIDATION REQUIREMENTS:**
+        - ALL resources must use ONLY valid arguments supported by their resource types
+        - ALL variable references must be properly declared in variables.tf
+        - ALL data sources must be properly configured with required arguments
+        - ALL resource dependencies must be explicitly defined
+        - NO deprecated or unsupported arguments
 
         USER REQUIREMENTS:
         {requirements}
@@ -144,183 +151,178 @@ class CodeGeneratorNode:
 
         TERRAFORM CODE STANDARDS:
 
-        1. Module Organization:
-        - Each module must have:
-            - main.tf - Core resources
-            - variables.tf - ALL inputs with validation blocks, descriptions, and constraints
-            - outputs.tf - ALL necessary outputs for cross-module references
-
-        2. Provider Configuration Example:
+        1. Provider Configuration (MANDATORY for each module):
+        ```hcl
         terraform {{
-            required_version = ">= 1.5.0"
-            required_providers {{
+        required_version = ">= 1.5.0"
+        required_providers {{
             aws = {{
-                source  = "hashicorp/aws"
-                version = "~> 5.0"
-            }}
-            random = {{
-                source  = "hashicorp/random"
-                version = "~> 3.5"
-            }}
+            source  = "hashicorp/aws"
+            version = "~> 5.0"
             }}
         }}
-        
+        }}
+
         provider "aws" {{
-            region = var.region
-            
-            default_tags {{
-            tags = var.tags
-            }}
+        region = var.region
+        
+        default_tags {{
+            tags = var.common_tags
+        }}
+        }}
+        ```
+
+        2. Module Organization:
+        - Each module must have:
+        - main.tf - Core resources with provider configuration
+        - variables.tf - ALL inputs with proper types and validation
+        - outputs.tf - ALL necessary outputs for cross-module references
+
+        3. Variable Definitions (ALL variables must be declared):
+        ```hcl
+        variable "region" {{
+        description = "AWS region for resources"
+        type        = string
+        validation {{
+            condition     = can(regex("^[a-z]{{2}}-[a-z]+-[0-9]{{1}}[a-z]?$", var.region))
+            error_message = "Region must be a valid AWS region format."
+        }}
         }}
 
-        3. Variable Definitions Example:
-        variable "example_variable" {{
-            description = "Detailed description of the variable's purpose"
-            type        = string
-            default     = "default_value"  # Omit for required variables
-            
-            validation {{
-            condition     = length(var.example_variable) > 3
-            error_message = "The example_variable must be more than 3 characters."
-            }}
+        variable "common_tags" {{
+        description = "Common tags to apply to all resources"
+        type        = map(string)
+        default     = {{}}
+        }}
+        ```
+
+        4. Data Sources (use only when necessary):
+        ```hcl
+        data "aws_availability_zones" "available" {{
+        state = "available"
         }}
 
-        4. Resource Naming:
-        - Use consistent naming convention: prefix-resource_type-purpose-environment
-        - Example: mycompany-ec2-webserver-prod
+        data "aws_ami" "amazon_linux" {{
+        most_recent = true
+        owners      = ["amazon"]
+        
+        filter {{
+            name   = "name"
+            values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+        }}
+        }}
+        ```
 
-        IMPLEMENTATION REQUIREMENTS:
-        EACH parameter from the INFRASTRUCTURE SPECIFICATIONS must be explicitly used as follows:
+        CRITICAL VALIDATION RULES:
 
-        1. Networking Module:
-        - VPC with CIDR from {vpc_cidr}
-        - Subnets based on {subnet_configuration}:
-            - Public subnets with Internet Gateway
-            - Private application subnets with NAT Gateway
-            - Private database subnets with no internet access
-        - All subnets distributed across AZs from {availability_zones}
-        - Network ACLs with appropriate rules
-        - Flow logs if {enable_logging} is true
-        - Transit Gateway or VPC Peering if multiple VPCs needed
+        1. **Networking Module Requirements:**
+        - VPC: Use only `cidr_block`, `enable_dns_hostname`, `enable_dns_support`, `tags`
+        - Subnets: Use only `vpc_id`, `cidr_block`, `availability_zone`, `map_public_ip_on_launch`, `tags`
+        - Internet Gateway: Use only `vpc_id`, `tags`
+        - Route Tables: Use only `vpc_id`, `tags`, and separate `aws_route` resources
+        - NAT Gateway: Use only `allocation_id`, `subnet_id`, `tags`
+        - Security Groups: Use only `name`, `description`, `vpc_id`, `tags`, and separate `aws_security_group_rule` resources
 
-        2. Compute Module based on {compute_type} and {is_serverless}:
-        - If {is_serverless} is true:
-            - Lambda functions with appropriate memory/timeout settings
-            - API Gateway with proper integration and auth
-            - Step Functions for orchestration if needed
-        - If {compute_type} includes EC2:
-            - Auto Scaling Groups with Launch Templates
-            - Instance Profile with least privilege IAM
-            - User data for bootstrapping
-            - SSM for management
-        - If {compute_type} includes ECS/EKS:
-            - Proper cluster configuration
-            - Task definitions/deployments
-            - Service discovery
-        - Multi-AZ distribution if {is_multi_az} is true
+        2. **EC2 Module Requirements:**
+        - Launch Template: Use only supported arguments like `name_prefix`, `image_id`, `instance_type`, `vpc_security_group_ids`, `user_data`, `tag_specifications`
+        - Auto Scaling Group: Use only `name`, `launch_template`, `vpc_zone_identifier`, `target_group_arns`, `health_check_type`, `min_size`, `max_size`, `desired_capacity`, `tag`
+        - Target Group: Use only `name`, `port`, `protocol`, `vpc_id`, `health_check`, `tags`
 
-        3. Load Balancing based on {load_balancer_type}:
-        - ALB for HTTP/HTTPS with:
-            - Proper target groups
-            - Health checks
-            - TLS policies
-            - WAF integration if {enable_waf} is true
-        - NLB for TCP/UDP with:
-            - Connection draining
-            - Cross-zone load balancing
-        - GWLB for network security appliances
-        - Integration with Route 53 for DNS
+        3. **Lambda Module Requirements:**
+        - Function: Use only `function_name`, `runtime`, `handler`, `filename` OR `s3_bucket`/`s3_key`, `role`, `environment`, `tags`
+        - IAM Role: Use only `name`, `assume_role_policy`, `tags`
+        - IAM Policy Attachment: Use only `role`, `policy_arn`
 
-        4. Database based on {database_type}:
-        - RDS:
-            - Multi-AZ if {is_multi_az} is true
-            - Parameter groups
-            - Option groups
-            - Automated backups
-            - Enhanced monitoring if {enable_monitoring} is true
-        - DynamoDB:
-            - Auto-scaling for read/write capacity
-            - Point-in-time recovery
-            - Global tables if needed
-        - ElastiCache:
-            - Redis vs Memcached based on use case
-            - Multi-AZ if {is_multi_az} is true
+        4. **ALB Module Requirements:**
+        - Load Balancer: Use only `name`, `internal`, `load_balancer_type`, `subnets`, `security_groups`, `tags`
+        - Listener: Use only `load_balancer_arn`, `port`, `protocol`, `default_action`
+        - Target Group: Use only `name`, `port`, `protocol`, `vpc_id`, `health_check`, `tags`
 
-        5. Security Implementation:
-        - IAM:
-            - Least privilege policies
-            - Roles with policy attachments
-            - Instance profiles
-        - Security Groups:
-            - Ingress/egress rules following least privilege
-            - Description for each rule
-        - KMS:
-            - Custom keys for sensitive data
-            - Proper key policies
-        - WAF if {enable_waf} is true:
-            - Core rule set
-            - Rate limiting
-            - Geo restrictions
-            - Custom rules based on requirements
-        - AWS Shield Advanced if needed
+        5. **RDS Module Requirements:**
+        - DB Instance: Use only `identifier`, `engine`, `engine_version`, `instance_class`, `allocated_storage`, `db_name`, `username`, `password`, `vpc_security_group_ids`, `db_subnet_group_name`, `multi_az`, `skip_final_snapshot`, `tags`
+        - DB Subnet Group: Use only `name`, `subnet_ids`, `tags`
 
-        6. Monitoring and Logging if {enable_monitoring} or {enable_logging} is true:
-        - CloudWatch:
-            - Log groups for all services
-            - Metrics and alarms for key indicators
-            - Custom dashboards
-            - Log insights queries
-        - CloudTrail:
-            - Multi-region trail
-            - Log file validation
-            - S3 bucket for logs with proper policy
-        - X-Ray:
-            - Tracing for distributed systems
-            - Sampling rules
+        MANDATORY IMPLEMENTATION PATTERNS:
 
-        7. Environment Differentiation:
-        - Dev:
-            - Lower cost instance types
-            - Minimal redundancy
-            - Development-specific security rules
-       
-        8. Tagging Strategy:
-        - Apply {tags} to all resources
-        - Additional required tags:
-            - Environment
-            - Owner
-            - CostCenter
-            - Application
+        1. **Variable Dependencies:**
+        - EVERY variable used in a module MUST be declared in that module's variables.tf
+        - EVERY variable passed to a module MUST exist in the calling configuration
+        - Use `var.variable_name` syntax consistently
 
-        ADVANCED CONFIGURATION:
-        1. State Management:
-        - S3 backend with versioning
-        - DynamoDB for state locking
-        - State file isolation per environment
+        2. **Resource Naming:**
+        - Use descriptive, unique names for all resources
+        - Follow pattern: `resource_type-purpose-environment`
+        - Example: `aws_vpc.main`, `aws_subnet.public`, `aws_security_group.web`
 
-        2. Secret Management:
-        - AWS Secrets Manager for sensitive data
-        - No hardcoded secrets in Terraform files
-        - IAM roles for service access
+        3. **Cross-Module References:**
+        - Use outputs to expose resource attributes
+        - Reference outputs using `module.module_name.output_name`
+        - Ensure all referenced outputs are properly declared
 
-        3. Compliance Features:
-        - Resource encryption in-transit and at-rest
-        - VPC endpoints for private AWS service access
-        - GuardDuty integration
-        - AWS Config rules
-        - Security Hub integration
+        4. **Subnet CIDR Validation:**
+        - Ensure all subnet CIDRs are within the VPC CIDR range
+        - Use proper CIDR notation (e.g., "10.0.1.0/24", not "10.0.1.24/16")
+        - Validate CIDR blocks don't overlap
 
-        4. Operational Excellence:
-        - Auto-remediation with EventBridge rules
-        - Backup strategies for all data stores
-        - Disaster recovery configurations
-        - Cross-region resources if needed
 
-        5. Cost Optimization:
-        - Reserved Instances/Savings Plans declarations
-        - Auto Scaling policies
-        - Lifecycle policies for storage
-        - Resource scheduling for non-production
+        ENVIRONMENT CONFIGURATION:
+
+        Dev Environment main.tf:
+        ```hcl
+        terraform {{
+        required_version = ">= 1.5.0"
+        required_providers {{
+            aws = {{
+            source  = "hashicorp/aws"
+            version = "~> 5.0"
+            }}
+        }}
+        }}
+
+        provider "aws" {{
+        region = var.region
+        
+        default_tags {{
+            tags = var.common_tags
+        }}
+        }}
+
+        # Networking module
+        module "networking" {{
+        source = "../../modules/networking"
+        
+        environment           = var.environment
+        region               = var.region
+        vpc_cidr            = var.vpc_cidr
+        public_subnet_cidrs = var.public_subnet_cidrs
+        private_subnet_cidrs = var.private_subnet_cidrs
+        database_subnet_cidrs = var.database_subnet_cidrs
+        availability_zones   = var.availability_zones
+        common_tags         = var.common_tags
+        }}
+
+        # Only include modules for requested services
+        # EC2 module (only if "ec2" in services)
+        module "ec2" {{
+        source = "../../modules/ec2"
+        
+        environment       = var.environment
+        vpc_id           = module.networking.vpc_id
+        private_subnet_ids = module.networking.private_subnet_ids
+        security_group_id = module.networking.ec2_security_group_id
+        common_tags      = var.common_tags
+        }}
+        ```
+
+        VALIDATION CHECKLIST:
+        - [ ] All variables are declared in variables.tf
+        - [ ] All data sources have required arguments
+        - [ ] All resource arguments are supported
+        - [ ] All module references use correct paths
+        - [ ] All CIDR blocks are valid and non-overlapping
+        - [ ] All cross-references use proper syntax
+        - [ ] Provider configuration is included in each module
+        - [ ] No deprecated or unsupported arguments used
 
         STRUCTURED OUTPUT FORMAT:
         Your response must be structured according to the following model:
@@ -336,28 +338,31 @@ class CodeGeneratorNode:
             modules: List[TerraformComponent]       # Service modules
 
         DELIVERABLES:
-        1. Generate only dev environment as TerraformComponent objects with:
-        - Proper module references in main.tf (e.g., source = "../../modules/lambda")
-        - Environment-specific variable values
-        - Appropriate output definitions
+        1. Generate ONLY dev environment as TerraformComponent with:
+        - Complete provider configuration in main.tf
+        - Proper module references with correct source paths
+        - ALL required variables declared in variables.tf
+        - Comprehensive outputs in output.tf
 
-        2. Generate all modules based on {services} as TerraformComponent objects with:
-        - Complete implementation of relevant AWS resources
-        - Proper variable definitions with validation
-        - All necessary outputs for cross-module references
+        2. Generate modules ONLY for services in {services} list:
+        - networking (always required)
+        - ec2 (if "ec2" in services)
+        - lambda (if "lambda" in services)
+        - rds (if database_type is specified)
+        - alb (if load_balancer_type is "ALB")
 
-        3. Create additional modules as needed based on {requirements}
+        3. Each module must include:
+        - Complete provider configuration in main.tf
+        - ALL variables properly declared with types and validation
+        - ALL necessary outputs for inter-module dependencies
+        - ONLY supported resource arguments
 
-        4. ALL parameters from INFRASTRUCTURE SPECIFICATIONS must be explicitly used in the appropriate TerraformComponent objects
+        4. Fix CIDR block issues:
+        - Correct any invalid CIDR notations in {subnet_configuration}
+        - Ensure all subnets are within VPC CIDR range
+        - Use proper /24, /16 notation
 
-        5. ALL generated code must follow AWS Well-Architected Framework principles for:
-        - Security
-        - Reliability
-        - Operational Excellence
-        - Performance Efficiency
-        - Cost Optimization
-
-        Your task is to generate comprehensive, production-ready Terraform code that fully implements all specifications and follows all best practices outlined above. The code must be complete, production-grade, and ready for enterprise deployment.
+        Your task is to generate VALIDATION-COMPLIANT, production-ready Terraform code that PASSES terraform validate without errors. The code must be syntactically correct, use only supported arguments, and have all dependencies properly declared.
         """
 
 
@@ -370,7 +375,7 @@ class CodeGeneratorNode:
         
         if code_feedback:
             # Insert the feedback after the objective line but before the inputs section
-            objective_line = "**Objective:** Generate a production-grade Terraform configuration (in HCL, not JSON) for an AWS infrastructure spanning development environment."
+            objective_line = "**Objective:** Generate a production-grade, VALIDATION-COMPLIANT Terraform configuration (in HCL, not JSON) for an AWS infrastructure spanning development environment"
             feedback_section = f"\n**Incorporate the following terraform initialization feedback :** {code_feedback}\n"
             
             # Replace the objective line with objective + feedback

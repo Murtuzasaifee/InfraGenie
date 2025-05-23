@@ -128,9 +128,9 @@ def load_user_input_ui():
         "region": "us-west-1",
         "vpc_cidr": "10.0.0.0/16",
         "subnet_configuration": {
-            "public": ["10.0.1.24/16", "10.0.2.24/16"],
+            "public": ["10.0.1.0/24", "10.0.2.0/24"],
             "private": ["10.0.3.0/24", "10.0.4.0/24"],
-            "database": ["10.0.5.0/24", "10.0.6.24/16"]
+            "database": ["10.0.5.0/24", "10.0.6.0/24"]
         },
         "availability_zones": ["us-west-1a", "us-west-1b"],
         "compute_type": "ec2",
