@@ -3,6 +3,7 @@ from src.infra_genie.state.infra_genie_state import InfraGenieState, TerraformOu
 from langchain_core.prompts import PromptTemplate
 from src.infra_genie.utils import constants as const
 from src.infra_genie.utils.Utility import Utility
+import json
     
 
 class CodeGeneratorNode:
@@ -13,10 +14,8 @@ class CodeGeneratorNode:
        
     
     def generate_terraform_code(self, state: InfraGenieState):
-        
         """
         Generate Terraform code with structured output.
-        
         """
 
         if not state.user_input:
@@ -41,6 +40,10 @@ class CodeGeneratorNode:
             result = structured_chain.invoke(input_dict)
             
             logger.debug(f"Result: {result}")
+            
+            # Clear existing environments and modules before adding new ones
+            state.environments.environments.clear()
+            state.modules.modules.clear()
             
             # Transfer the structured result to the state
             for env in result.environments:
@@ -71,9 +74,12 @@ class CodeGeneratorNode:
         return state
     
     
-    
     def get_terraform_code_prompt(self, state: InfraGenieState) -> str:
-        terraform_prompt = """
+        """
+        Get the Terraform code generation prompt with validation feedback incorporated.
+        """
+        
+        base_prompt = """
         **Objective:** Generate a production-grade, VALIDATION-COMPLIANT Terraform configuration (in HCL, not JSON) for an AWS infrastructure spanning development environment.
 
         **CRITICAL VALIDATION REQUIREMENTS:**
@@ -148,7 +154,60 @@ class CodeGeneratorNode:
         Parameter: Region
         Value: {region}
         Required Implementation: Must be used in provider configuration and region-specific resources
+        """
 
+        # Check for validation feedback and incorporate it
+        validation_feedback = getattr(state, 'code_validation_feedback', None)
+        user_feedback = getattr(state, 'code_validation_user_feedback', None)
+        
+        feedback_section = ""
+        if validation_feedback or user_feedback:
+            feedback_section = "\n**CRITICAL: INCORPORATE THE FOLLOWING FEEDBACK TO FIX VALIDATION ERRORS:**\n"
+            
+            if validation_feedback:
+                feedback_section += f"""
+                **Terraform Validation Errors to Fix:**
+                {validation_feedback}
+
+                **ACTION REQUIRED:** 
+                - Analyze each validation error above
+                - Fix ALL syntax errors, unsupported arguments, and missing variable declarations
+                - Ensure ALL variable references are properly declared in variables.tf files
+                - Use only supported resource arguments as per AWS provider documentation
+                - Fix any CIDR block issues or overlapping subnets
+                - Ensure proper module references and dependencies
+
+                """
+                
+                if user_feedback:
+                    feedback_section += f"""
+                    **User Feedback to Address:**
+                    {user_feedback}
+
+                    **ACTION REQUIRED:**
+                    - Address all user concerns and requirements
+                    - Implement suggested improvements
+                    - Ensure the solution meets user expectations
+
+                    """
+            
+            # Add context about existing code if available
+            if hasattr(state, 'environments') and state.environments.environments:
+                feedback_section += """
+                **EXISTING CODE CONTEXT:**
+                You are fixing/improving existing Terraform code. Make sure to:
+                - Maintain the same module structure and naming conventions
+                - Fix errors without breaking working parts
+                - Preserve user requirements and infrastructure specifications
+                - Only modify what needs to be fixed based on the feedback above
+
+                """
+
+        # Combine base prompt with feedback section
+        prompt_with_feedback = base_prompt + feedback_section
+
+        # Add the rest of the prompt
+        rest_of_prompt = """
         TERRAFORM CODE STANDARDS:
 
         1. Provider Configuration (MANDATORY for each module):
@@ -264,56 +323,6 @@ class CodeGeneratorNode:
         - Use proper CIDR notation (e.g., "10.0.1.0/24", not "10.0.1.24/16")
         - Validate CIDR blocks don't overlap
 
-
-        ENVIRONMENT CONFIGURATION:
-
-        Dev Environment main.tf:
-        ```hcl
-        terraform {{
-        required_version = ">= 1.5.0"
-        required_providers {{
-            aws = {{
-            source  = "hashicorp/aws"
-            version = "~> 5.0"
-            }}
-        }}
-        }}
-
-        provider "aws" {{
-        region = var.region
-        
-        default_tags {{
-            tags = var.common_tags
-        }}
-        }}
-
-        # Networking module
-        module "networking" {{
-        source = "../../modules/networking"
-        
-        environment           = var.environment
-        region               = var.region
-        vpc_cidr            = var.vpc_cidr
-        public_subnet_cidrs = var.public_subnet_cidrs
-        private_subnet_cidrs = var.private_subnet_cidrs
-        database_subnet_cidrs = var.database_subnet_cidrs
-        availability_zones   = var.availability_zones
-        common_tags         = var.common_tags
-        }}
-
-        # Only include modules for requested services
-        # EC2 module (only if "ec2" in services)
-        module "ec2" {{
-        source = "../../modules/ec2"
-        
-        environment       = var.environment
-        vpc_id           = module.networking.vpc_id
-        private_subnet_ids = module.networking.private_subnet_ids
-        security_group_id = module.networking.ec2_security_group_id
-        common_tags      = var.common_tags
-        }}
-        ```
-
         VALIDATION CHECKLIST:
         - [ ] All variables are declared in variables.tf
         - [ ] All data sources have required arguments
@@ -324,19 +333,6 @@ class CodeGeneratorNode:
         - [ ] Provider configuration is included in each module
         - [ ] No deprecated or unsupported arguments used
 
-        STRUCTURED OUTPUT FORMAT:
-        Your response must be structured according to the following model:
-
-        class TerraformComponent:
-            name: str              # The name of the component
-            main_tf: str           # The main.tf file content
-            output_tf: str         # The output.tf file content
-            variables_tf: str      # The variables.tf file content
-            
-        class TerraformOutput:
-            environments: List[TerraformComponent]  # dev environment
-            modules: List[TerraformComponent]       # Service modules
-
         DELIVERABLES:
         1. Generate ONLY dev environment as TerraformComponent with:
         - Complete provider configuration in main.tf
@@ -344,7 +340,7 @@ class CodeGeneratorNode:
         - ALL required variables declared in variables.tf
         - Comprehensive outputs in output.tf
 
-        2. Generate modules ONLY for services in {services} list:
+        2. Generate modules ONLY for services in {{services}} list:
         - networking (always required)
         - ec2 (if "ec2" in services)
         - lambda (if "lambda" in services)
@@ -358,37 +354,28 @@ class CodeGeneratorNode:
         - ONLY supported resource arguments
 
         4. Fix CIDR block issues:
-        - Correct any invalid CIDR notations in {subnet_configuration}
+        - Correct any invalid CIDR notations in {{subnet_configuration}}
         - Ensure all subnets are within VPC CIDR range
         - Use proper /24, /16 notation
 
         Your task is to generate VALIDATION-COMPLIANT, production-ready Terraform code that PASSES terraform validate without errors. The code must be syntactically correct, use only supported arguments, and have all dependencies properly declared.
         """
 
-
-        
-        ### Check if code_validation_error exists and insert it into the prompt if it does
-        
-        code_feedback = getattr(state, 'code_validation_feedback', None) ## feedback from the code validator
-        
-        # code_feedback = getattr(state, 'code_validation_user_feedback', None) ## feedback from the user
-        
-        if code_feedback:
-            # Insert the feedback after the objective line but before the inputs section
-            objective_line = "**Objective:** Generate a production-grade, VALIDATION-COMPLIANT Terraform configuration (in HCL, not JSON) for an AWS infrastructure spanning development environment"
-            feedback_section = f"\n**Incorporate the following terraform initialization feedback :** {code_feedback}\n"
-            
-            # Replace the objective line with objective + feedback
-            terraform_prompt = terraform_prompt.replace(
-                objective_line, 
-                objective_line + feedback_section
-            )
-        
-        return terraform_prompt
+        return prompt_with_feedback + rest_of_prompt
     
     def is_code_generated(self, state: InfraGenieState):
         """Decide whether to use the fallback method based on the code generation status."""
         return state.code_generated
     
     def fix_code(self, state: InfraGenieState):
-        pass
+        """
+        This method is called when code validation fails and we need to fix the code.
+        It's essentially a wrapper around generate_terraform_code but with feedback context.
+        """
+        logger.info("Fixing Terraform code based on validation feedback...")
+        
+        # Reset code generation status to trigger regeneration
+        state.code_generated = False
+        
+        # Call the main generation method which will now include validation feedback
+        return self.generate_terraform_code(state)
