@@ -53,7 +53,7 @@ class GraphBuilder:
         self.graph_builder.add_node("code_validator", self.code_validator_node.validate_terraform_code)
         self.graph_builder.add_node("create_terraform_plan", self.code_validator_node.create_terraform_plan)
         self.graph_builder.add_node("fix_code", self.code_generation_node.fix_code)
-        
+        self.graph_builder.add_node("download_artifacts", self.process_code_node.download_artifacts)
 
         ## Edges
         self.graph_builder.add_edge(START,"initialize_project")
@@ -86,10 +86,12 @@ class GraphBuilder:
             "create_terraform_plan",
             self.code_validator_node.terraform_plan_router,
             {
-                "approved": END,
+                "approved": 'download_artifacts',
                 "feedback": "fix_code"
             }
         )
+        
+        self.graph_builder.add_edge("download_artifacts", END)
     
         
     # def setup_graph(self):

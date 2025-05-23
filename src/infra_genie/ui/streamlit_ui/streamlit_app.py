@@ -554,7 +554,7 @@ def load_app():
                         else:
                             st.info("🔄 Sending feedback to revise code.")
                             graph_response = graph_executor.graph_review_flow(
-                                st.session_state.task_id, status="feedback", feedback=feedback_text.strip(),review_type=const.REVISE_CODE
+                                st.session_state.task_id, status="feedback", feedback=feedback_text.strip(),review_type=const.CODE_VALIDATION
                             )
                             st.session_state.state = graph_response["state"]
                             st.session_state.stage = const.GENERATE_CODE
@@ -568,12 +568,51 @@ def load_app():
         # ---------------- Tab 4: Terraform Plan ----------------
         elif tab_index == 3:  # Terraform Plan
             st.header("Terraform Plan")
-            if st.session_state.state == const.GENERATE_PLAN:
+            if st.session_state.stage == const.GENERATE_PLAN:
                 
                 logger.info("Terraform Plan stage reached.")
                 
-                st.subheader("Terraform Plan")
+                # Display Generated Code
+                display_generated_code()
                 
+                # Display requirements summary for reference
+                if "user_input" in st.session_state.state:
+                    with st.expander("Requirements Summary"):
+                        st.json(st.session_state.state["user_input"])
+                
+                
+                ## Review Section
+                st.subheader("Review Plan")
+                feedback_text = st.text_area("Provide feedback for improving code (optional):")
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("Download Artifacts"):
+                        graph_response = graph_executor.graph_review_flow(
+                            st.session_state.task_id, status="approved", feedback=None,  review_type=const.GENERATE_PLAN
+                        )
+                        st.session_state.state = graph_response["state"]
+                        st.session_state.stage = const.DOWNLOAD_ARTIFACTS
+                       
+                        # Change tab to Terraform Plan (index 4)
+                        st.session_state.current_tab_index = 4
+                        st.rerun()
+                        
+                        
+                with col2:
+                    if st.button("🔄 Re-generate Code"):
+                        if not feedback_text.strip():
+                            st.warning("✍️ Give Feedback. Please enter feedback before submitting.")
+                        else:
+                            st.info("🔄 Sending feedback to revise code.")
+                            graph_response = graph_executor.graph_review_flow(
+                                st.session_state.task_id, status="feedback", feedback=feedback_text.strip(),review_type=const.GENERATE_PLAN
+                            )
+                            st.session_state.state = graph_response["state"]
+                            st.session_state.stage = const.GENERATE_CODE
+                            # Change tab to Code Generation (index 1)
+                            st.session_state.current_tab_index = 1
+                            st.rerun()
+                            
             else:
                 st.info("No Terraform Plan generated yet.")
                 
@@ -581,7 +620,7 @@ def load_app():
         # ---------------- Tab 5: Download Artifacts ----------------
         elif tab_index == 4:  # Download Artifacts
             st.header("Download Artifacts")
-            if st.session_state.state == const.DOWNLOAD_ARTIFACTS:
+            if st.session_state.stage == const.DOWNLOAD_ARTIFACTS:
                 
                 logger.info("Download artifacts stage reached.")
                 

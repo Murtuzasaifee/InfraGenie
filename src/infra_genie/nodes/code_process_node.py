@@ -52,4 +52,8 @@ class ProcessCodeNode:
         print(f"Terraform files have been saved to {base_dir}")
         
         return state
+    
+    
+    def download_artifacts(self, state: InfraGenieState):
+        pass
         
