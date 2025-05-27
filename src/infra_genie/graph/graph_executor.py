@@ -74,20 +74,21 @@ class GraphExecutor:
                 saved_state.code_validation_user_feedback = feedback
                 saved_state.code_review_status = status
                 
-                ## For testing only
-                # saved_state.is_code_valid = True
-                
-                saved_state.next_node = const.GENERATE_CODE if status == "feedback" else const.GENERATE_PLAN
-                
-            elif review_type == const.GENERATE_PLAN:
-                node_name = "create_terraform_plan"
-                saved_state.code_validation_user_feedback = feedback
-                saved_state.code_review_status = status
-                
-                ## For testing only
-                # saved_state.is_plan_success = True
+                if status == "approved":
+                    logger.success("User Approved the code")
+                    saved_state.is_code_valid = True
                 
                 saved_state.next_node = const.GENERATE_CODE if status == "feedback" else const.DOWNLOAD_ARTIFACTS
+                
+            # elif review_type == const.GENERATE_PLAN:
+            #     node_name = "create_terraform_plan"
+            #     saved_state.code_validation_user_feedback = feedback
+            #     saved_state.code_review_status = status
+                
+            #     ## For testing only
+            #     # saved_state.is_plan_success = True
+                
+            #     saved_state.next_node = const.GENERATE_CODE if status == "feedback" else const.DOWNLOAD_ARTIFACTS
                 
             else:
                 raise ValueError(f"Unsupported review type: {review_type}")

@@ -14,6 +14,10 @@ import json
 from pathlib import Path
 from src.infra_genie.state.infra_genie_state import UserInput
 import uuid
+from pathlib import Path
+import tempfile
+from datetime import datetime
+import zipfile
 
 def initialize_session():
     st.session_state.stage = const.PROJECT_INITILIZATION
@@ -380,7 +384,109 @@ def display_generated_code():
             for filename, content in files.items():
                 with st.expander(f"📄 {filename}"):
                     st.code(content, language="hcl")
-                                
+                            
+def create_zip_from_output_folder():
+    """
+    Creates a zip file from the output/src folder maintaining the directory structure
+    Returns the path to the created zip file
+    """
+    output_folder = Path("output/src")
+    
+    if not output_folder.exists():
+        return None
+    
+    # Create a temporary file for the zip
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    zip_filename = f"terraform_artifacts_{timestamp}.zip"
+    
+    # Create zip in a temporary directory
+    temp_dir = tempfile.mkdtemp()
+    zip_path = os.path.join(temp_dir, zip_filename)
+    
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        # Walk through the output/src directory
+        for root, dirs, files in os.walk(output_folder):
+            for file in files:
+                file_path = os.path.join(root, file)
+                # Create archive path relative to output/src
+                arcname = os.path.relpath(file_path, output_folder)
+                zipf.write(file_path, arcname)
+    
+    return zip_path
+
+def get_folder_structure_display():
+    """
+    Returns a string representation of the output folder structure for display
+    """
+    output_folder = Path("output/src")
+    
+    if not output_folder.exists():
+        return "No artifacts found"
+    
+    structure = []
+    
+    def add_to_structure(path, prefix=""):
+        items = sorted(path.iterdir(), key=lambda x: (x.is_file(), x.name))
+        for i, item in enumerate(items):
+            is_last = i == len(items) - 1
+            current_prefix = "└── " if is_last else "├── "
+            structure.append(f"{prefix}{current_prefix}{item.name}")
+            
+            if item.is_dir():
+                next_prefix = prefix + ("    " if is_last else "│   ")
+                add_to_structure(item, next_prefix)
+    
+    structure.append("📁 terraform_artifacts/")
+    add_to_structure(output_folder, "")
+    
+    return "\n".join(structure)
+
+def get_artifact_summary():
+    """
+    Returns summary information about the generated artifacts
+    """
+    output_folder = Path("output/src")
+    
+    if not output_folder.exists():
+        return {}
+    
+    summary = {
+        "environments": [],
+        "modules": [],
+        "total_files": 0,
+        "total_size": 0
+    }
+    
+    # Count environments
+    env_folder = output_folder / "environments"
+    if env_folder.exists():
+        for env_dir in env_folder.iterdir():
+            if env_dir.is_dir():
+                file_count = len(list(env_dir.glob("*.tf")))
+                summary["environments"].append({
+                    "name": env_dir.name,
+                    "files": file_count
+                })
+    
+    # Count modules
+    modules_folder = output_folder / "modules"
+    if modules_folder.exists():
+        for module_dir in modules_folder.iterdir():
+            if module_dir.is_dir():
+                file_count = len(list(module_dir.glob("*.tf")))
+                summary["modules"].append({
+                    "name": module_dir.name,
+                    "files": file_count
+                })
+    
+    # Count total files and size
+    for file_path in output_folder.rglob("*"):
+        if file_path.is_file():
+            summary["total_files"] += 1
+            summary["total_size"] += file_path.stat().st_size
+    
+    return summary
+    
 ## Main Entry Point    
 def load_app():
     """
@@ -427,7 +533,7 @@ def load_app():
             return
 
         # Create a radio button for tab selection instead of tabs
-        tab_options = ["Infra Requirement", "Code Generation", "Code Validation","Terraform Plan", "Download Artifacts"]
+        tab_options = ["Infra Requirement", "Code Generation", "Code Validation", "Download Artifacts"]
         current_tab_index = st.session_state.get("current_tab_index", 0)
         selected_tab = st.radio("Navigation", tab_options, index=current_tab_index, horizontal=True, label_visibility="collapsed")
         
@@ -540,9 +646,9 @@ def load_app():
                             st.session_state.task_id, status="approved", feedback=None,  review_type=const.CODE_VALIDATION
                         )
                         st.session_state.state = graph_response["state"]
-                        st.session_state.stage = const.GENERATE_PLAN
+                        st.session_state.stage = const.DOWNLOAD_ARTIFACTS
                        
-                        # Change tab to Terraform Plan (index 3)
+                        # Change tab to Downaload Artifacts (index 3)
                         st.session_state.current_tab_index = 3
                         st.rerun()
                         
@@ -565,69 +671,213 @@ def load_app():
             else:
                 st.info("Code validation pending or not reached yet.")
        
-        # ---------------- Tab 4: Terraform Plan ----------------
-        elif tab_index == 3:  # Terraform Plan
-            st.header("Terraform Plan")
-            if st.session_state.stage == const.GENERATE_PLAN:
+        # # ---------------- Tab 4: Terraform Plan ----------------
+        # elif tab_index == 3:  # Terraform Plan
+        #     st.header("Terraform Plan")
+        #     if st.session_state.stage == const.GENERATE_PLAN:
                 
-                logger.info("Terraform Plan stage reached.")
+        #         logger.info("Terraform Plan stage reached.")
                 
-                # Display Generated Code
-                display_generated_code()
+        #         # Display Generated Code
+        #         display_generated_code()
                 
-                # Display requirements summary for reference
-                if "user_input" in st.session_state.state:
-                    with st.expander("Requirements Summary"):
-                        st.json(st.session_state.state["user_input"])
+        #         # Display requirements summary for reference
+        #         if "user_input" in st.session_state.state:
+        #             with st.expander("Requirements Summary"):
+        #                 st.json(st.session_state.state["user_input"])
                 
                 
-                ## Review Section
-                st.subheader("Review Plan")
-                feedback_text = st.text_area("Provide feedback for improving code (optional):")
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("Download Artifacts"):
-                        graph_response = graph_executor.graph_review_flow(
-                            st.session_state.task_id, status="approved", feedback=None,  review_type=const.GENERATE_PLAN
-                        )
-                        st.session_state.state = graph_response["state"]
-                        st.session_state.stage = const.DOWNLOAD_ARTIFACTS
+        #         ## Review Section
+        #         st.subheader("Review Plan")
+        #         feedback_text = st.text_area("Provide feedback for improving code (optional):")
+        #         col1, col2 = st.columns(2)
+        #         with col1:
+        #             if st.button("Download Artifacts"):
+        #                 graph_response = graph_executor.graph_review_flow(
+        #                     st.session_state.task_id, status="approved", feedback=None,  review_type=const.GENERATE_PLAN
+        #                 )
+        #                 st.session_state.state = graph_response["state"]
+        #                 st.session_state.stage = const.DOWNLOAD_ARTIFACTS
                        
-                        # Change tab to Terraform Plan (index 4)
-                        st.session_state.current_tab_index = 4
-                        st.rerun()
+        #                 # Change tab to Terraform Plan (index 4)
+        #                 st.session_state.current_tab_index = 4
+        #                 st.rerun()
                         
                         
-                with col2:
-                    if st.button("🔄 Re-generate Code"):
-                        if not feedback_text.strip():
-                            st.warning("✍️ Give Feedback. Please enter feedback before submitting.")
-                        else:
-                            st.info("🔄 Sending feedback to revise code.")
-                            graph_response = graph_executor.graph_review_flow(
-                                st.session_state.task_id, status="feedback", feedback=feedback_text.strip(),review_type=const.GENERATE_PLAN
-                            )
-                            st.session_state.state = graph_response["state"]
-                            st.session_state.stage = const.GENERATE_CODE
-                            # Change tab to Code Generation (index 1)
-                            st.session_state.current_tab_index = 1
-                            st.rerun()
+        #         with col2:
+        #             if st.button("🔄 Re-generate Code"):
+        #                 if not feedback_text.strip():
+        #                     st.warning("✍️ Give Feedback. Please enter feedback before submitting.")
+        #                 else:
+        #                     st.info("🔄 Sending feedback to revise code.")
+        #                     graph_response = graph_executor.graph_review_flow(
+        #                         st.session_state.task_id, status="feedback", feedback=feedback_text.strip(),review_type=const.GENERATE_PLAN
+        #                     )
+        #                     st.session_state.state = graph_response["state"]
+        #                     st.session_state.stage = const.GENERATE_CODE
+        #                     # Change tab to Code Generation (index 1)
+        #                     st.session_state.current_tab_index = 1
+        #                     st.rerun()
                             
-            else:
-                st.info("No Terraform Plan generated yet.")
+        #     else:
+        #         st.info("No Terraform Plan generated yet.")
                 
                          
-        # ---------------- Tab 5: Download Artifacts ----------------
-        elif tab_index == 4:  # Download Artifacts
+        # ---------------- Tab 3: Download Artifacts ----------------
+        elif tab_index == 3:  # Download Artifacts
             st.header("Download Artifacts")
             if st.session_state.stage == const.DOWNLOAD_ARTIFACTS:
-                
                 logger.info("Download artifacts stage reached.")
                 
-                st.subheader("Download Artifacts")
-                
+                # Check if artifacts exist
+                output_folder = Path("output/src")
+                if not output_folder.exists() or not any(output_folder.iterdir()):
+                    st.warning("⚠️ No artifacts found to download.")
+                    st.info("Please generate code first by going through the previous steps.")
+                else:
+                    # Display artifact summary
+                    st.subheader("📊 Artifact Summary")
+                    
+                    summary = get_artifact_summary()
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric("Total Files", summary["total_files"])
+                    
+                    with col2:
+                        st.metric("Environments", len(summary["environments"]))
+                    
+                    with col3:
+                        st.metric("Modules", len(summary["modules"]))
+                    
+                    with col4:
+                        size_mb = summary["total_size"] / (1024 * 1024)
+                        st.metric("Total Size", f"{size_mb:.2f} MB")
+                    
+                    # Display detailed breakdown
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.subheader("🏗️ Environments")
+                        if summary["environments"]:
+                            for env in summary["environments"]:
+                                st.write(f"• **{env['name']}** - {env['files']} files")
+                        else:
+                            st.write("No environments found")
+                    
+                    with col2:
+                        st.subheader("📦 Modules")
+                        if summary["modules"]:
+                            for module in summary["modules"]:
+                                st.write(f"• **{module['name']}** - {module['files']} files")
+                        else:
+                            st.write("No modules found")
+                    
+                    # Display folder structure
+                    st.subheader("📁 Folder Structure")
+                    with st.expander("View complete folder structure"):
+                        structure = get_folder_structure_display()
+                        st.code(structure, language="text")
+                    
+                    # Display generated code preview
+                    st.subheader("📄 Generated Code Preview")
+                    display_generated_code()
+                    
+                    # Download section
+                    st.subheader("⬇️ Download Options")
+                    
+                    col1, col2 = st.columns([2, 1])
+                    
+                    with col1:
+                        st.info("💡 **What you'll get:**\n"
+                            "• Complete Terraform configuration files\n"
+                            "• Organized by environments and modules\n"
+                            "• Ready-to-deploy infrastructure code\n"
+                            "• Maintains proper directory structure")
+                    
+                    with col2:
+                        # Create download button
+                        if st.button("🗜️ Create Download Package", type="primary"):
+                            with st.spinner("Creating download package..."):
+                                zip_path = create_zip_from_output_folder()
+                                
+                                if zip_path:
+                                    # Store zip path in session state for download
+                                    st.session_state.zip_path = zip_path
+                                    st.success("✅ Download package created successfully!")
+                                else:
+                                    st.error("❌ Failed to create download package")
+                    
+                    # Download button (appears after package is created)
+                    if hasattr(st.session_state, 'zip_path') and os.path.exists(st.session_state.zip_path):
+                        st.subheader("📥 Download Ready")
+                        
+                        # Read the zip file for download
+                        with open(st.session_state.zip_path, "rb") as file:
+                            zip_data = file.read()
+                        
+                        # Get the filename from the path
+                        zip_filename = os.path.basename(st.session_state.zip_path)
+                        
+                        st.download_button(
+                            label="📥 Download Terraform Artifacts",
+                            data=zip_data,
+                            file_name=zip_filename,
+                            mime="application/zip",
+                            type="primary",
+                            help="Click to download your complete Terraform configuration"
+                        )
+                        
+                        # Display download instructions
+                        st.subheader("📋 Next Steps")
+                        st.markdown("""
+                        **After downloading:**
+                        
+                        1. **Extract the ZIP file** to your desired location
+                        2. **Navigate to the environment** you want to deploy (dev/stage/prod)
+                        3. **Initialize Terraform:**
+                        ```bash
+                        terraform init
+                        ```
+                        4. **Review the plan:**
+                        ```bash
+                        terraform plan
+                        ```
+                        5. **Apply the configuration:**
+                        ```bash
+                        terraform apply
+                        ```
+                        
+                        **Important Notes:**
+                        - Ensure you have AWS credentials configured
+                        - Review all configurations before applying
+                        - Start with the dev environment for testing
+                        - Customize variables as needed for your specific requirements
+                        """)
+                        
+                        # Cleanup option
+                        if st.button("🧹 Clear Download Package"):
+                            try:
+                                if os.path.exists(st.session_state.zip_path):
+                                    os.remove(st.session_state.zip_path)
+                                del st.session_state.zip_path
+                                st.success("Package cleared successfully!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error clearing package: {e}")
+            
             else:
-                st.info("No artifacts generated yet.")
+                st.info("🔄 Download artifacts are not ready yet.")
+                st.markdown("""
+                **To reach this stage, you need to:**
+                1. ✅ Complete the infrastructure requirements
+                2. ✅ Generate Terraform code
+                3. ✅ Validate the generated code
+                4. ✅ Review and approve the Terraform plan
+                
+                Please go through the previous steps first.
+                """)
 
     except Exception as e:
         raise ValueError(f"Error occured with Exception : {e}")
