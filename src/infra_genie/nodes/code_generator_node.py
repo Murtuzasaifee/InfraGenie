@@ -80,7 +80,7 @@ class CodeGeneratorNode:
         """
         
         base_prompt = """
-        **Objective:** Generate a production-grade, VALIDATION-COMPLIANT Terraform configuration (in HCL, not JSON) for an AWS infrastructure spanning development environment.
+        **Objective:** Generate a production-grade, VALIDATION-COMPLIANT Terraform configuration (in HCL, not JSON) for an AWS infrastructure spanning dev environment.
 
         **CRITICAL VALIDATION REQUIREMENTS:**
         - ALL resources must use ONLY valid arguments supported by their resource types

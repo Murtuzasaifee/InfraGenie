@@ -152,24 +152,76 @@ class CodeValidatorNode:
             logger.success(f"Terraform Plan Stdout: {plan_result.stdout}")
             logger.error(f"Terraform Plan stderr: {plan_result.stderr}")
             
-            if plan_result.returncode == 0:
-                state.is_plan_success = True
-                
-                # Convert the plan to JSON format for easy parsing
-                json_plan_result = subprocess.run(
-                    ["terraform", "show", "-json", "tfplan"],
-                    cwd=self.base_directory,
-                    capture_output=True,
-                    text=True
-                )
-                logger.success(f"Terraform Plan Json: {json_plan_result}")
-                state.plan_summary = "" ## TODO
-                
-            else:
+            if plan_result.returncode != 0:
                 state.is_plan_success = False
                 state.plan_error = plan_result.stderr
+                return state
+                
+            # Convert the plan to JSON format for easy parsing
+            json_plan_result = subprocess.run(
+                ["terraform", "show", "-json", "tfplan"],
+                cwd=self.base_directory,
+                capture_output=True,
+                text=True
+            )
+            logger.success(f"Terraform Plan Json: {json_plan_result}")
             
-            return state
+            ## Failed to conver plan to JSON
+            if json_plan_result.returncode != 0:
+                state.is_plan_success = False
+                state.plan_error = "Failed to convert Terraform plan to JSON format"
+                return state
+            
+            try:
+                plan_json = json.loads(json_plan_result.stdout)
+                
+                # Process the plan data into a more concise format
+                simplified_plan = {
+                    "success": True,
+                    "resource_changes": [],
+                    "output_changes": []
+                }
+                
+                # Extract resource changes
+                if "resource_changes" in plan_json:
+                    for resource in plan_json["resource_changes"]:
+                        change = {
+                            "address": resource.get("address"),
+                            "action": resource.get("change", {}).get("actions", []),
+                            "type": resource.get("type", "")
+                        }
+                        simplified_plan["resource_changes"].append(change)
+                
+                # Extract output changes if present
+                if "output_changes" in plan_json:
+                    for output_name, output_change in plan_json["output_changes"].items():
+                        change = {
+                            "name": output_name,
+                            "action": output_change.get("actions", [])
+                        }
+                        simplified_plan["output_changes"].append(change)
+                
+                # Summary statistics
+                simplified_plan["summary"] = {
+                    "add": len([r for r in simplified_plan["resource_changes"] if "create" in r["action"]]),
+                    "change": len([r for r in simplified_plan["resource_changes"] if "update" in r["action"]]),
+                    "destroy": len([r for r in simplified_plan["resource_changes"] if "delete" in r["action"]])
+                }
+                
+                # Store both full and simplified plans
+                state.plan_data = plan_json
+                state.plan_summary = simplified_plan
+                state.is_plan_success = True
+                logger.debug(f"plan_json : {plan_json}")
+                logger.debug(f"simplified_plan : {simplified_plan}")
+                
+                return state
+                
+            except json.JSONDecodeError:
+                state.is_plan_success = False
+                state.plan_error = "Failed to parse Terraform plan JSON output"
+                raise Exception(state.plan_error)
+            
         
         except Exception as e:
             state.is_plan_success = False
