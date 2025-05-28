@@ -1,22 +1,27 @@
 from loguru import logger
-from src.infra_genie.state.infra_genie_state import InfraGenieState, TerraformOutput, TerraformComponent, UserInput
+from src.infra_genie.state.infra_genie_state import InfraGenieState, TerraformOutput, TerraformComponent
 from langchain_core.prompts import PromptTemplate
 from src.infra_genie.utils import constants as const
-from src.infra_genie.utils.Utility import Utility
-from src.infra_genie.utils.components_type import ComponentType
+from typing import Dict, Any, List, Optional
+from enum import Enum
 import json
-from typing import Dict, Any, List
-from src.infra_genie.nodes.decomposed_prompts import DecomposedTerraformPrompts
-    
 
-class CodeGeneratorNode:
+class ComponentType(Enum):
+    NETWORKING = "networking"
+    SECURITY = "security"
+    DATABASE = "database"  
+    COMPUTE = "compute"
+    MONITORING = "monitoring"
+    SECURITY_ENHANCED = "security_enhanced"
+
+class EnhancedCodeGeneratorNode:
+    """Enhanced code generator with decomposed, component-based prompts"""
     
     def __init__(self, llm):
         self.llm = llm
-        self.utility = Utility()
         self.generated_outputs = {}
         self.component_order = []
-       
+        
     def generate_terraform_code(self, state: InfraGenieState):
         """
         Generate Terraform code using decomposed component approach
@@ -28,11 +33,10 @@ class CodeGeneratorNode:
             print("Starting component-based Terraform generation...")
             
             # Convert user input to dict for easier handling
-            user_input_dict = self.extract_user_input_dict(state.user_input)
-            logger.debug(f"User Input Dict: {user_input_dict}")
+            user_input_dict = self._extract_user_input_dict(state.user_input)
             
             # Determine component generation order
-            self.component_order = self.get_generation_order(user_input_dict)
+            self.component_order = self._get_generation_order(user_input_dict)
             logger.info(f"Generation order: {[c.value for c in self.component_order]}")
             
             # Clear existing state
@@ -45,7 +49,7 @@ class CodeGeneratorNode:
                 logger.info(f"Generating {component_type.value} component...")
                 
                 try:
-                    component = self.generate_single_component(component_type, user_input_dict)
+                    component = self._generate_single_component(component_type, user_input_dict)
                     all_components[component_type.value] = component
                     
                     # Store outputs for dependency resolution
@@ -69,7 +73,7 @@ class CodeGeneratorNode:
                 state.modules.modules.append(terraform_component)
             
             # Generate environment configuration that uses all modules
-            env_component = self.generate_environment_configuration(user_input_dict, all_components)
+            env_component = self._generate_environment_configuration(user_input_dict, all_components)
             state.environments.environments.append(env_component)
             
             logger.success(f"Generated {len(state.modules.modules)} modules and {len(state.environments.environments)} environments")
@@ -79,14 +83,16 @@ class CodeGeneratorNode:
         except Exception as e:
             logger.error(f"Component-based generation failed: {e}")
             state.code_generated = False
+            state.next_node = const.FALLBACK_GENERATION
             
         return state
     
-    def extract_user_input_dict(self, user_input:UserInput) -> Dict[str, Any]:
+    def _extract_user_input_dict(self, user_input) -> Dict[str, Any]:
         """Extract user input into dict format for easier processing"""
         
-        # Handle the user input format
+        # Handle the new simplified input format
         if hasattr(user_input, 'basic_info'):
+            # New format with progressive disclosure
             return {
                 'project_name': user_input.basic_info.project_name,
                 'description': user_input.basic_info.description,
@@ -96,9 +102,21 @@ class CodeGeneratorNode:
                 'region': getattr(user_input.basic_info, 'region', 'us-west-2')
             }
         else:
-            return None
+            # Handle direct dict input from your example
+            if isinstance(user_input, dict):
+                return user_input
+            
+            # Handle existing UserInput model
+            return {
+                'project_name': getattr(user_input, 'project_name', 'unknown'),
+                'description': getattr(user_input, 'requirements', ''),
+                'application_type': 'web_application',
+                'detected_services': getattr(user_input, 'services', []),
+                'security_level': 'basic',
+                'region': getattr(user_input, 'region', 'us-west-2')
+            }
     
-    def get_generation_order(self, user_input_dict: Dict[str, Any]) -> List[ComponentType]:
+    def _get_generation_order(self, user_input_dict: Dict[str, Any]) -> List[ComponentType]:
         """Determine component generation order based on dependencies"""
         
         base_order = [
@@ -122,11 +140,11 @@ class CodeGeneratorNode:
         
         return base_order
     
-    def generate_single_component(self, component_type: ComponentType, user_input_dict: Dict[str, Any]) -> Dict[str, Any]:
+    def _generate_single_component(self, component_type: ComponentType, user_input_dict: Dict[str, Any]) -> Dict[str, Any]:
         """Generate a single component using specialized prompts"""
         
         # Get component-specific prompt
-        prompt = self.get_component_prompt(component_type, user_input_dict)
+        prompt = self._get_component_prompt(component_type, user_input_dict)
         
         # Use structured output for component generation
         structured_llm = self.llm.with_structured_output(TerraformComponent)
@@ -142,44 +160,26 @@ class CodeGeneratorNode:
             'component_type': component_type.value
         }
     
-    def get_component_prompt(self, component_type: ComponentType, user_input: Dict[str, Any]) -> str:
-        """Get the specific prompt for each component type"""
-        dependencies = self.generated_outputs
+    def _get_component_prompt(self, component_type: ComponentType, user_input_dict: Dict[str, Any]) -> str:
+        """Get specialized prompt for each component type using decomposed prompts"""
+        
+        # Import and initialize the decomposed prompts
+        from src.infra_genie.nodes.decomposed_terraform_prompts import DecomposedTerraformPrompts
         
         prompts = DecomposedTerraformPrompts()
         
+        # Map component types to prompt methods
         prompt_map = {
-            ComponentType.NETWORKING: prompts.get_networking_prompt(user_input),
-            ComponentType.SECURITY: prompts.get_security_groups_prompt(user_input, dependencies),
-            ComponentType.DATABASE: prompts.get_database_prompt(user_input, dependencies),
-            ComponentType.COMPUTE: prompts.get_compute_prompt(user_input, dependencies),
-            ComponentType.MONITORING: prompts.get_monitoring_prompt(user_input, dependencies),
+            ComponentType.NETWORKING: prompts.get_networking_prompt,
+            ComponentType.SECURITY: prompts.get_security_groups_prompt,
+            ComponentType.DATABASE: prompts.get_database_prompt,
+            ComponentType.COMPUTE: prompts.get_compute_prompt,
+            ComponentType.MONITORING: prompts.get_monitoring_prompt,
+            ComponentType.SECURITY_ENHANCED: prompts.get_security_enhancement_prompt,
         }
-        
-        # Add security enhancement for Enhanced level
-        if (component_type == ComponentType.SECURITY and 
-            user_input.get('security_level') == 'Enhanced'):
-            return prompts.get_security_enhancement_prompt(user_input, self.generated_outputs)
         
         prompt_func = prompt_map.get(component_type)
         if prompt_func:
-            return prompt_func(user_input, self.generated_outputs)
+            return prompt_func(user_input_dict, self.generated_outputs)
         else:
             raise ValueError(f"No prompt defined for component type: {component_type}")
-    
-    def is_code_generated(self, state: InfraGenieState):
-        """Decide whether to use the fallback method based on the code generation status."""
-        return state.code_generated
-    
-    def fix_code(self, state: InfraGenieState):
-        """
-        This method is called when code validation fails and we need to fix the code.
-        It's essentially a wrapper around generate_terraform_code but with feedback context.
-        """
-        logger.info("Fixing Terraform code based on validation feedback...")
-        
-        # Reset code generation status to trigger regeneration
-        state.code_generated = False
-        
-        # Call the main generation method which will now include validation feedback
-        return self.generate_terraform_code(state)

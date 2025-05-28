@@ -1,5 +1,3 @@
-import os
-import streamlit as st
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 
@@ -14,9 +12,9 @@ class GeminiLLM:
             if  self.user_controls_input:
                 gemini_api_key = self.user_controls_input['GEMINI_API_KEY']
                 selected_gemini_model = self.user_controls_input['selected_gemini_model']
-                llm = ChatGoogleGenerativeAI(api_key=gemini_api_key, model= selected_gemini_model)
+                llm = ChatGoogleGenerativeAI(api_key=gemini_api_key, model= selected_gemini_model, temperature=0.0)
             else:
-                llm = ChatGoogleGenerativeAI(api_key=self.api_key,model=self.model)
+                llm = ChatGoogleGenerativeAI(api_key=self.api_key,model=self.model, temperature=0.0)
         
         except Exception as e:
             raise ValueError(f"Error occured with Exception : {e}")

@@ -3,7 +3,6 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables.graph import MermaidDrawMethod
 from src.infra_genie.state.infra_genie_state import InfraGenieState
 from src.infra_genie.nodes.code_generator_node import CodeGeneratorNode
-from src.infra_genie.nodes.fallback_node import FallbackNode
 from src.infra_genie.nodes.project_node import ProjectNode
 from src.infra_genie.nodes.code_process_node import ProcessCodeNode
 from src.infra_genie.nodes.code_validator_node import CodeValidatorNode
@@ -40,7 +39,6 @@ class GraphBuilder:
         
         self.project_node = ProjectNode(self.llm)
         self.code_generation_node = CodeGeneratorNode(self.llm)
-        self.fallback_node = FallbackNode(self.llm)
         self.process_code_node = ProcessCodeNode(self.llm)
         self.code_validator_node = CodeValidatorNode(self.llm)
         
@@ -48,10 +46,8 @@ class GraphBuilder:
         self.graph_builder.add_node("initialize_project", self.project_node.initialize_project)
         self.graph_builder.add_node("get_user_requirements", self.project_node.get_user_requirements)
         self.graph_builder.add_node("generate_terraform_code", self.code_generation_node.generate_terraform_code)
-        self.graph_builder.add_node("fallback_generate_terraform_code", self.fallback_node.fallback_generate_terraform_code)
         self.graph_builder.add_node("save_code", self.process_code_node.save_terraform_files)
         self.graph_builder.add_node("code_validator", self.code_validator_node.validate_terraform_code)
-        self.graph_builder.add_node("create_terraform_plan", self.code_validator_node.create_terraform_plan)
         self.graph_builder.add_node("fix_code", self.code_generation_node.fix_code)
         self.graph_builder.add_node("download_artifacts", self.process_code_node.download_artifacts)
 
@@ -59,18 +55,15 @@ class GraphBuilder:
         self.graph_builder.add_edge(START,"initialize_project")
         self.graph_builder.add_edge("initialize_project","get_user_requirements")
         self.graph_builder.add_edge("get_user_requirements","generate_terraform_code")
+        
         self.graph_builder.add_conditional_edges(
             "generate_terraform_code",
-            self.code_generation_node.is_code_generated,
-            {True: "save_code", False: "fallback_generate_terraform_code"}
-        )
-        self.graph_builder.add_conditional_edges(
-            "fallback_generate_terraform_code",
             self.code_generation_node.is_code_generated,
             {True: "save_code", False: END}
         )
         
         self.graph_builder.add_edge("save_code","code_validator")
+        
         self.graph_builder.add_conditional_edges(
             "code_validator",
             self.code_validator_node.code_validation_router,
@@ -81,16 +74,6 @@ class GraphBuilder:
         )
         
         self.graph_builder.add_edge("fix_code","generate_terraform_code")
-        
-        # self.graph_builder.add_conditional_edges(
-        #     "create_terraform_plan",
-        #     self.code_validator_node.terraform_plan_router,
-        #     {
-        #         "approved": 'download_artifacts',
-        #         "feedback": "fix_code"
-        #     }
-        # )
-        
         self.graph_builder.add_edge("download_artifacts", END)
     
         
@@ -123,7 +106,6 @@ class GraphBuilder:
             interrupt_after=[
                 'save_code',
                 'code_validator',
-                # 'create_terraform_plan'
             ],checkpointer=self.memory
         )
         self.save_graph_image(graph)         

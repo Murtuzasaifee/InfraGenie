@@ -12,12 +12,13 @@ import os
 from loguru import logger
 import json
 from pathlib import Path
-from src.infra_genie.state.infra_genie_state import UserInput
+from src.infra_genie.state.infra_genie_state import UserInput, BasicInfo
 import uuid
 from pathlib import Path
 import tempfile
 from datetime import datetime
 import zipfile
+from typing import List
 
 def initialize_session():
     st.session_state.stage = const.PROJECT_INITILIZATION
@@ -124,168 +125,91 @@ def load_streamlit_ui(config: Config):
     user_controls = load_sidebar_ui(config)
     return user_controls
 
+class ServiceDetector:
+    """Analyze user description and suggest services"""
+    
+    @staticmethod
+    def detect_services_from_description(description: str, app_type: str) -> List[str]:
+        """Use simple keyword matching or LLM to detect needed services"""
+        
+        keywords_to_services = {
+            "database": ["rds", "dynamodb"],
+            "file upload": ["s3"],
+            "user auth": ["cognito"],
+            "email": ["ses"],
+            "api": ["apigateway"],
+            "website": ["cloudfront", "s3"],
+            "high traffic": ["alb", "autoscaling"],
+            "real-time": ["lambda", "eventbridge"]
+        }
+        
+        detected = []
+        description_lower = description.lower()
+        
+        for keyword, services in keywords_to_services.items():
+            if keyword in description_lower:
+                detected.extend(services)
+                
+        return list(set(detected))  # Remove duplicates
+    
 def load_user_input_ui():
     
-    # Sample test data to pre-fill the form
-    test_input = {
-        "services": ["ec2", "lambda"],
-        "region": "us-west-1",
-        "vpc_cidr": "10.0.0.0/16",
-        "subnet_configuration": {
-            "public": ["10.0.1.0/24", "10.0.2.0/24"],
-            "private": ["10.0.3.0/24", "10.0.4.0/24"],
-            "database": ["10.0.5.0/24", "10.0.6.0/24"]
-        },
-        "availability_zones": ["us-west-1a", "us-west-1b"],
-        "compute_type": "ec2",
-        "database_type": "rds",
-        "is_multi_az": True,
-        "is_serverless": False,
-        "enable_logging": True,
-        "enable_monitoring": True,
-        "load_balancer_type": "ALB",
-        "enable_waf": True,
-        "tags": {
-            "Environment": "dev",
-            "ManagedBy": "Terraform",
-            "Owner": "DevOps"
-        },
-        "requirements": "Need terraform for the Java based application with autoscaling and load balancer",
-        "custom_parameters": {}
-    }
-
-    st.subheader("Basic Configuration")
+    st.subheader("Tell us about your project")
     
-    if st.checkbox("Enable Test Mode", value=True):
-        test_mode = True
-    else:
-        test_mode = False
+    # Use tabs for progressive disclosure
+    tab1, tab2, tab3 = st.tabs(["📋 Project Basics", "🔧 Services", "⚙️ Configuration"])
     
-    # Resolve the JSON path relative to the current file
-    json_path = Path(__file__).resolve().parents[2] / "data" / "aws_services.json"
-
-    # Load the JSON file
-    with open(json_path, "r") as f:
-        aws_services = json.load(f)
+    with tab1:
+        project_name = st.text_input("Project Name", placeholder="my-awesome-app")
+        
+        description = st.text_area(
+            "What are you building?", 
+            placeholder="A web application where users can create accounts and share photos",
+            help="Describe your application in plain English. We'll suggest the right AWS services."
+        )
+        
+        app_type = st.selectbox(
+            "Application Type",
+            ["web_application", "api_service", "static_website", "data_pipeline", "custom"]
+        )
+        
+        # Show template shortcuts
+        if st.checkbox("Use a template instead?"):
+            template = st.selectbox(
+                "Choose Template",
+                ["simple_website", "web_app_basic", "web_app_scalable", "api_microservice"]
+            )
+            st.info(f"Template '{template}' will auto-configure everything for you!")
     
-    aws_services_list = aws_services.get("services", [])
-    database_services = aws_services.get("database", [])
-
-    requirements = st.text_area(
-        "Application Requirements",
-        value=test_input["requirements"] if test_mode else "",
-        placeholder="Enter your application requirements here. E.g., Create Terraform module for VPC setup on AWS"
-    )
+    with tab2:
+        st.write("Based on your description, we suggest these services:")
+        
+        # AI-detected services (simulated)
+        detected = ServiceDetector.detect_services_from_description(description, app_type)
+        
+        for service in detected:
+            st.checkbox(f"✅ {service}", value=True, help="Auto-detected from your description")
+        
+        # Optional additions
+        st.write("Need anything else?")
+        additional = st.multiselect("Additional Services", ["lambda", "sns", "sqs", "elasticache"])
     
-    selected_services = st.multiselect(
-    "Select AWS Services",
-    aws_services_list,
-    default=test_input["services"] if test_mode else []
-    )
-    
-    region = st.text_input(
-        "AWS Region",
-        value=test_input["region"] if test_mode else "",
-        placeholder="e.g., us-west-1"
-    )
-    vpc_cidr = st.text_input(
-        "VPC CIDR Block",
-        value=test_input["vpc_cidr"] if test_mode else "",
-        placeholder="e.g., 10.0.0.0/16"
-    )
-
-    st.subheader("Subnet Configuration")
-    public_subnets = st.text_area(
-        "Public Subnet CIDRs (comma-separated)",
-        value=", ".join(test_input["subnet_configuration"]["public"]) if test_mode else "",
-        placeholder="e.g., 10.0.1.0/24, 10.0.2.0/24"
-    )
-    private_subnets = st.text_area(
-        "Private Subnet CIDRs (comma-separated)",
-        value=", ".join(test_input["subnet_configuration"]["private"]) if test_mode else "",
-        placeholder="e.g., 10.0.3.0/24, 10.0.4.0/24"
-    )
-    database_subnets = st.text_area(
-        "Database Subnet CIDRs (comma-separated)",
-        value=", ".join(test_input["subnet_configuration"]["database"]) if test_mode else "",
-        placeholder="e.g., 10.0.5.0/24, 10.0.6.0/24"
-    )
-
-    subnet_configuration = {
-        "public": [s.strip() for s in public_subnets.split(",") if s.strip()],
-        "private": [s.strip() for s in private_subnets.split(",") if s.strip()],
-        "database": [s.strip() for s in database_subnets.split(",") if s.strip()],
-    }
-
-    availability_zones = st.text_input(
-        "Availability Zones (comma-separated)",
-        value=", ".join(test_input["availability_zones"]) if test_mode else "",
-        placeholder="e.g., us-west-1a, us-west-1b"
-    )
-    availability_zones_list = [az.strip() for az in availability_zones.split(",") if az.strip()]
-
-    compute_type = st.selectbox(
-        "Compute Type",
-        ["", "ec2", "fargate"],
-        index=["", "ec2", "fargate"].index(test_input["compute_type"]) if test_mode else 0
-    )
-    database_type = st.selectbox(
-        "Select Database Type",
-        [""] + database_services,
-        index=([""] + database_services).index(test_input["database_type"]) if test_mode and test_input["database_type"] in database_services else 0
-    )
-    is_multi_az = st.checkbox("Enable Multi-AZ", value=test_input["is_multi_az"] if test_mode else True)
-    is_serverless = st.checkbox("Use Serverless Architecture", value=test_input["is_serverless"] if test_mode else False)
-    enable_logging = st.checkbox("Enable CloudWatch Logging", value=test_input["enable_logging"] if test_mode else True)
-    enable_monitoring = st.checkbox("Enable Monitoring", value=test_input["enable_monitoring"] if test_mode else True)
-
-    load_balancer_type = st.selectbox(
-        "Load Balancer Type",
-        ["", "ALB", "NLB", "CLB"],
-        index=["", "ALB", "NLB", "CLB"].index(test_input["load_balancer_type"]) if test_mode else 0
-    )
-    enable_waf = st.checkbox("Enable AWS WAF", value=test_input["enable_waf"] if test_mode else False)
-
-    st.subheader("Tags")
-    environment = st.text_input("Environment", value=test_input["tags"]["Environment"] if test_mode else "dev")
-    managed_by = st.text_input("Managed By", value=test_input["tags"]["ManagedBy"] if test_mode else "Terraform")
-    owner = st.text_input("Owner", value=test_input["tags"]["Owner"] if test_mode else "DevOps")
-    tags = {
-        "Environment": environment,
-        "ManagedBy": managed_by,
-        "Owner": owner
-    }
-
-    st.subheader("Advanced Configuration")
-    custom_parameters_raw = st.text_area(
-        "Custom Parameters (JSON format)",
-        value=json.dumps(test_input["custom_parameters"], indent=2) if test_mode else "{}"
-    )
-
-    
-    try:
-        custom_parameters = json.loads(custom_parameters_raw)
-    except json.JSONDecodeError:
-        st.error("Invalid JSON in Custom Parameters")
-        custom_parameters = {}
+    with tab3:
+        st.write("Fine-tune your configuration")
+        
+        # Only show relevant options
+        if "rds" in detected or "dynamodb" in detected:
+            db_type = st.selectbox("Database Type", ["Simple (RDS)", "Scalable (DynamoDB)"])
+        
+        security_level = st.selectbox("Security Level", ["Basic", "Enhanced", "Strict"])
+        
     
     st.session_state.form_data = {
-        "services": selected_services,
-        "region": region,
-        "vpc_cidr": vpc_cidr,
-        "subnet_configuration": subnet_configuration,
-        "availability_zones": availability_zones_list,
-        "compute_type": compute_type,
-        "database_type": database_type or None,
-        "is_multi_az": is_multi_az,
-        "is_serverless": is_serverless,
-        "enable_logging": enable_logging,
-        "enable_monitoring": enable_monitoring,
-        "load_balancer_type": load_balancer_type or None,
-        "enable_waf": enable_waf,
-        "tags": tags,
-        "requirements": requirements,
-        "custom_parameters": custom_parameters,
+        "project_name": project_name,
+        "description": description,
+        "application_type": app_type,
+        "detected_services": detected,
+        "security_level": security_level
     }
 
 
@@ -570,7 +494,8 @@ def load_app():
                 if st.button("Submit Requirements"):
                     logger.info("Submit button clicked")
                     
-                    user_input = UserInput(**st.session_state.form_data)
+                    basic_info = BasicInfo(**st.session_state.form_data)
+                    user_input = UserInput(basic_info=basic_info)
                     st.session_state.state["user_input"] = user_input
                     st.json(user_input)
                     st.success("User requirements submitted successfully!")
