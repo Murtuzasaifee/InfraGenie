@@ -122,8 +122,6 @@ class DecomposedTerraformPrompts:
         - Application: {user_input['description']}
         - Security Level: {user_input['security_level']}
         
-        AVAILABLE DEPENDENCIES:
-        {self.format_dependencies(networking_deps)}
         
         DEPENDENCY USAGE IN CODE:
         Use these exact references in your Terraform code:
@@ -149,10 +147,6 @@ class DecomposedTerraformPrompts:
         - Use specific port ranges, no wildcards
         - Add detailed descriptions for each rule
         - Enable security group rule descriptions
-        
-        VARIABLES SECTION:
-        Include these variables in variables.tf:
-        {self.get_dependency_variables(networking_deps)}
         
         REQUIRED OUTPUTS (These will be used by other modules):
         - alb_sg_id: For load balancer attachment
@@ -184,10 +178,6 @@ class DecomposedTerraformPrompts:
         - Description: {user_input['description']}
         - Detected Services: {detected_db_services}
         - Security Level: {user_input['security_level']}
-        
-        AVAILABLE DEPENDENCIES:
-        {self.format_dependencies(networking_deps)}
-        {self.format_dependencies(security_deps)}
         
         DEPENDENCY USAGE IN CODE:
         Use these exact references in your Terraform code:
@@ -232,16 +222,6 @@ class DecomposedTerraformPrompts:
         - Use AWS Secrets Manager for credentials
         - Implement proper IAM policies
         
-        VARIABLES SECTION:
-        Include these variables in variables.tf:
-        {self.get_dependency_variables(networking_deps)}
-        {self.get_dependency_variables(security_deps)}
-        
-        variable "db_instance_class" {{
-          description = "RDS instance class"
-          type        = string
-          default     = "db.t3.micro"
-        }}
         
         REQUIRED OUTPUTS (These will be used by other modules):
         - rds_endpoint: For application connection
@@ -273,10 +253,6 @@ class DecomposedTerraformPrompts:
         - Description: {user_input['description']}
         - Security Level: {user_input['security_level']}
         
-        AVAILABLE DEPENDENCIES:
-        {self.format_dependencies(networking_deps)}
-        {self.format_dependencies(security_deps)}
-        {self.format_dependencies(database_deps)}
         
         DEPENDENCY USAGE IN CODE:
         Use these exact references in your Terraform code:
@@ -335,17 +311,6 @@ class DecomposedTerraformPrompts:
         - Systems Manager Session Manager (no SSH keys needed)
         - Instance refresh for zero-downtime deployments
         
-        VARIABLES SECTION:
-        Include these variables in variables.tf:
-        {self.get_dependency_variables(networking_deps)}
-        {self.get_dependency_variables(security_deps)}
-        {self.get_dependency_variables(database_deps)}
-        
-        variable "instance_type" {{
-          description = "EC2 instance type"
-          type        = string
-          default     = "t3.medium"
-        }}
         
         REQUIRED OUTPUTS (These will be used by other modules):
         - alb_dns_name: For DNS configuration
@@ -377,8 +342,6 @@ class DecomposedTerraformPrompts:
         - Project: {user_input['project_name']}
         - Security Level: {user_input['security_level']} (Enhanced monitoring required)
         
-        AVAILABLE DEPENDENCIES:
-        {self.format_dependencies(dependencies)}
         
         DEPENDENCY USAGE IN CODE:
         Use these exact references in your Terraform code:
@@ -429,15 +392,6 @@ class DecomposedTerraformPrompts:
         - Use metric filters to reduce noise
         - Implement log aggregation
         
-        VARIABLES SECTION:
-        Include these variables in variables.tf:
-        {self.get_dependency_variables(dependencies)}
-        
-        variable "notification_email" {{
-          description = "Email for alarm notifications"
-          type        = string
-          default     = "admin@example.com"
-        }}
         
         REQUIRED OUTPUTS (These will be used by security module):
         - dashboard_url: For operations team
@@ -468,8 +422,6 @@ class DecomposedTerraformPrompts:
         - Security Level: {user_input['security_level']} (Enhanced)
         - Application: ATS Resume Checker (PII handling required)
         
-        AVAILABLE DEPENDENCIES:
-        {self.format_dependencies(dependencies)}
         
         DEPENDENCY USAGE IN CODE:
         Use these exact references in your Terraform code:
@@ -529,10 +481,6 @@ class DecomposedTerraformPrompts:
         - Access logging and monitoring
         - Data retention policies
         - Backup encryption
-        
-        VARIABLES SECTION:
-        Include these variables in variables.tf:
-        {self.get_dependency_variables(dependencies)}
         
         REQUIRED OUTPUTS:
         - waf_web_acl_arn: For additional protection rules

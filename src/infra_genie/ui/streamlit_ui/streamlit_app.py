@@ -160,7 +160,7 @@ def load_user_input_ui():
     tab1, tab2, tab3 = st.tabs(["📋 Project Basics", "🔧 Services", "⚙️ Configuration"])
     
     with tab1:
-        project_name = st.text_input("Project Name", placeholder="my-awesome-app")
+        project_name = st.text_input("Project Name", value=st.session_state.project_name)
         
         description = st.text_area(
             "What are you building?", 
