@@ -28,7 +28,7 @@ class DecomposedTerraformPrompts:
         - Include comprehensive error handling
         """
 
-    def _format_dependencies(self, dependencies: Dict[str, Any]) -> str:
+    def format_dependencies(self, dependencies: Dict[str, Any]) -> str:
         """Format available dependencies for inclusion in prompts"""
         if not dependencies:
             return "No dependencies available yet."
@@ -42,7 +42,7 @@ class DecomposedTerraformPrompts:
         
         return "".join(formatted) if formatted else "No dependencies available yet."
 
-    def _get_dependency_variables(self, dependencies: Dict[str, Any]) -> str:
+    def get_dependency_variables(self, dependencies: Dict[str, Any]) -> str:
         """Generate variable declarations for dependencies"""
         if not dependencies:
             return ""
@@ -73,7 +73,7 @@ class DecomposedTerraformPrompts:
         - Security Level: {user_input['security_level']}
         
         DEPENDENCIES:
-        {self._format_dependencies(dependencies)}
+        {self.format_dependencies(dependencies)}
         
         NETWORKING REQUIREMENTS:
         1. Create a VPC with appropriate CIDR (10.0.0.0/16 recommended)
@@ -123,7 +123,7 @@ class DecomposedTerraformPrompts:
         - Security Level: {user_input['security_level']}
         
         AVAILABLE DEPENDENCIES:
-        {self._format_dependencies(dependencies)}
+        {self.format_dependencies(dependencies)}
         
         DEPENDENCY USAGE IN CODE:
         Use these exact references in your Terraform code:
@@ -152,7 +152,7 @@ class DecomposedTerraformPrompts:
         
         VARIABLES SECTION:
         Include these variables in variables.tf:
-        {self._get_dependency_variables(dependencies)}
+        {self.get_dependency_variables(dependencies)}
         
         REQUIRED OUTPUTS (These will be used by other modules):
         - alb_sg_id: For load balancer attachment
@@ -186,7 +186,7 @@ class DecomposedTerraformPrompts:
         - Security Level: {user_input['security_level']}
         
         AVAILABLE DEPENDENCIES:
-        {self._format_dependencies(dependencies)}
+        {self.format_dependencies(dependencies)}
         
         DEPENDENCY USAGE IN CODE:
         Use these exact references in your Terraform code:
@@ -233,7 +233,7 @@ class DecomposedTerraformPrompts:
         
         VARIABLES SECTION:
         Include these variables in variables.tf:
-        {self._get_dependency_variables(dependencies)}
+        {self.get_dependency_variables(dependencies)}
         
         variable "db_instance_class" {{
           description = "RDS instance class"
@@ -272,7 +272,7 @@ class DecomposedTerraformPrompts:
         - Security Level: {user_input['security_level']}
         
         AVAILABLE DEPENDENCIES:
-        {self._format_dependencies(dependencies)}
+        {self.format_dependencies(dependencies)}
         
         DEPENDENCY USAGE IN CODE:
         Use these exact references in your Terraform code:
@@ -333,7 +333,7 @@ class DecomposedTerraformPrompts:
         
         VARIABLES SECTION:
         Include these variables in variables.tf:
-        {self._get_dependency_variables(dependencies)}
+        {self.get_dependency_variables(dependencies)}
         
         variable "instance_type" {{
           description = "EC2 instance type"
@@ -372,7 +372,7 @@ class DecomposedTerraformPrompts:
         - Security Level: {user_input['security_level']} (Enhanced monitoring required)
         
         AVAILABLE DEPENDENCIES:
-        {self._format_dependencies(dependencies)}
+        {self.format_dependencies(dependencies)}
         
         DEPENDENCY USAGE IN CODE:
         Use these exact references in your Terraform code:
@@ -425,7 +425,7 @@ class DecomposedTerraformPrompts:
         
         VARIABLES SECTION:
         Include these variables in variables.tf:
-        {self._get_dependency_variables(dependencies)}
+        {self.get_dependency_variables(dependencies)}
         
         variable "notification_email" {{
           description = "Email for alarm notifications"
@@ -463,7 +463,7 @@ class DecomposedTerraformPrompts:
         - Application: ATS Resume Checker (PII handling required)
         
         AVAILABLE DEPENDENCIES:
-        {self._format_dependencies(dependencies)}
+        {self.format_dependencies(dependencies)}
         
         DEPENDENCY USAGE IN CODE:
         Use these exact references in your Terraform code:
@@ -526,7 +526,7 @@ class DecomposedTerraformPrompts:
         
         VARIABLES SECTION:
         Include these variables in variables.tf:
-        {self._get_dependency_variables(dependencies)}
+        {self.get_dependency_variables(dependencies)}
         
         REQUIRED OUTPUTS:
         - waf_web_acl_arn: For additional protection rules

@@ -49,7 +49,7 @@ class CodeGeneratorNode:
                     all_components[component_type.value] = component
                     
                     # Store outputs for dependency resolution
-                    self.generated_outputs[component_type.value] = self._extract_component_outputs(component)
+                    self.generated_outputs[component_type.value] = self.extract_component_outputs(component)
                     
                     logger.success(f"✅ {component_type.value} component generated")
                     
@@ -82,6 +82,25 @@ class CodeGeneratorNode:
             
         return state
     
+    def extract_component_outputs(self, component: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract outputs from a generated component for use by dependent components"""
+        
+        # Parse the outputs.tf to extract key output values
+        outputs_tf = component.get('outputs_tf', '')
+        component_type = component.get('component_type', '')
+        
+        # Simple parsing - in production, you might want more sophisticated parsing
+        outputs = {'component_type': component_type}
+        
+        # Extract output names from the terraform code
+        import re
+        output_matches = re.findall(r'output\s+"([^"]+)"', outputs_tf)
+        for output_name in output_matches:
+            # Create a placeholder reference for this output
+            outputs[output_name] = f"module.{component_type}.{output_name}"
+        
+        return outputs
+    
     def extract_user_input_dict(self, user_input:UserInput) -> Dict[str, Any]:
         """Extract user input into dict format for easier processing"""
         
@@ -92,7 +111,7 @@ class CodeGeneratorNode:
                 'description': user_input.basic_info.description,
                 'application_type': user_input.basic_info.application_type,
                 'detected_services': getattr(user_input, 'inferred_services', []),
-                'security_level': getattr(user_input.configuration, 'security_level', 'basic'),
+                'security_level': getattr(user_input.basic_info.security_level, 'security_level', 'basic'),
                 'region': getattr(user_input.basic_info, 'region', 'us-west-2')
             }
         else:
@@ -183,3 +202,174 @@ class CodeGeneratorNode:
         
         # Call the main generation method which will now include validation feedback
         return self.generate_terraform_code(state)
+    
+
+    def generate_environment_configuration(self, user_input_dict: Dict[str, Any], all_components: Dict[str, Any]) -> TerraformComponent:
+        """Generate the main environment configuration that uses all modules"""
+        
+        project_name = user_input_dict.get('project_name', 'infrastructure')
+        
+        # Generate main.tf that references all modules
+        main_tf = f'''# Main configuration for {project_name}
+            # Generated environment: dev
+            
+            terraform {{
+            required_version = ">= 1.5.0"
+            required_providers {{
+                aws = {{
+                source  = "hashicorp/aws"
+                version = "~> 5.0"
+                }}
+            }}
+            }}
+            
+            provider "aws" {{
+            region = var.region
+            
+            default_tags {{
+                tags = var.common_tags
+            }}
+            }}
+            
+            # Networking Module
+            module "networking" {{
+            source = "../../modules/networking"
+            
+            project_name = var.project_name
+            environment = var.environment
+            vpc_cidr = var.vpc_cidr
+            availability_zones = var.availability_zones
+            common_tags = var.common_tags
+            }}
+            
+            # Security Module  
+            module "security" {{
+            source = "../../modules/security"
+            
+            vpc_id = module.networking.vpc_id
+            project_name = var.project_name
+            environment = var.environment
+            common_tags = var.common_tags
+            }}
+        '''
+        
+        # Add database module if present
+        if 'database' in all_components:
+            main_tf += '''
+            # Database Module
+            module "database" {{
+            source = "../../modules/database"
+            
+            db_subnet_group_name = module.networking.db_subnet_group_name
+            database_security_group_id = module.security.database_sg_id
+            project_name = var.project_name
+            environment = var.environment
+            common_tags = var.common_tags
+            }}
+        '''
+        
+        # Add compute module if present
+        if 'compute' in all_components:
+            main_tf += '''
+            # Compute Module
+            module "compute" {{
+            source = "../../modules/compute"
+            
+            vpc_id = module.networking.vpc_id
+            private_subnet_ids = module.networking.private_subnet_ids
+            public_subnet_ids = module.networking.public_subnet_ids
+            application_security_group_id = module.security.application_sg_id
+            alb_security_group_id = module.security.alb_sg_id
+            project_name = var.project_name
+            environment = var.environment
+            common_tags = var.common_tags
+            }}
+        '''
+        
+        # Add monitoring module if present
+        if 'monitoring' in all_components:
+            main_tf += '''
+            # Monitoring Module  
+            module "monitoring" {{
+            source = "../../modules/monitoring"
+            
+            alb_arn = module.compute.alb_arn
+            asg_name = module.compute.asg_name
+            project_name = var.project_name
+            environment = var.environment
+            common_tags = var.common_tags
+            }}
+        '''
+        
+        # Generate variables.tf
+        variables_tf = f'''# Variables for {project_name} infrastructure
+
+            variable "project_name" {{
+            description = "Name of the project"
+            type        = string
+            default     = "{project_name}"
+            }}
+            
+            variable "environment" {{
+            description = "Environment name"
+            type        = string
+            default     = "dev"
+            }}
+            
+            variable "region" {{
+            description = "AWS region"
+            type        = string
+            default     = "us-west-2"
+            }}
+            
+            variable "vpc_cidr" {{
+            description = "CIDR block for VPC"
+            type        = string
+            default     = "10.0.0.0/16"
+            }}
+            
+            variable "availability_zones" {{
+            description = "List of availability zones"
+            type        = list(string)
+            default     = ["us-west-2a", "us-west-2b"]
+            }}
+            
+            variable "common_tags" {{
+            description = "Common tags to apply to all resources"
+            type        = map(string)
+            default = {{
+                Project     = "{project_name}"
+                Environment = "dev"
+                ManagedBy   = "Terraform"
+            }}
+            }}
+        '''
+        
+        # Generate outputs.tf
+        outputs_tf = f'''# Outputs for {project_name} infrastructure
+
+            output "vpc_id" {{
+            description = "ID of the VPC"
+            value       = module.networking.vpc_id
+            }}
+        '''
+        
+        if 'compute' in all_components:
+            outputs_tf += '''
+            output "alb_dns_name" {{
+            description = "DNS name of the Application Load Balancer"
+            value       = module.compute.alb_dns_name
+            }}
+            
+            output "application_url" {{
+            description = "URL of the application"
+            value       = "https://${{module.compute.alb_dns_name}}"
+            }}
+        '''
+        
+        return TerraformComponent(
+            name="dev",
+            main_tf=main_tf,
+            variables_tf=variables_tf,
+            output_tf=outputs_tf
+        )
