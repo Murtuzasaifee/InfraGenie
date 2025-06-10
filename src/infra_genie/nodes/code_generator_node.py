@@ -154,6 +154,8 @@ class CodeGeneratorNode:
         chain = structured_prompt | structured_llm
         result = chain.invoke(user_input_dict)
         
+        print(f"Output of {component_type} : {result}")
+        
         return {
             'main_tf': result.main_tf,
             'variables_tf': result.variables_tf,
@@ -182,7 +184,8 @@ class CodeGeneratorNode:
         
         prompt_func = prompt_map.get(component_type)
         if prompt_func:
-            return prompt_func(user_input, self.generated_outputs)
+            print(f"{component_type}: {prompt_func}")
+            return prompt_func
         else:
             raise ValueError(f"No prompt defined for component type: {component_type}")
     

@@ -123,7 +123,7 @@ class DecomposedTerraformPrompts:
         - Security Level: {user_input['security_level']}
         
         AVAILABLE DEPENDENCIES:
-        {self.format_dependencies(dependencies)}
+        {self.format_dependencies(networking_deps)}
         
         DEPENDENCY USAGE IN CODE:
         Use these exact references in your Terraform code:
@@ -152,7 +152,7 @@ class DecomposedTerraformPrompts:
         
         VARIABLES SECTION:
         Include these variables in variables.tf:
-        {self.get_dependency_variables(dependencies)}
+        {self.get_dependency_variables(networking_deps)}
         
         REQUIRED OUTPUTS (These will be used by other modules):
         - alb_sg_id: For load balancer attachment
@@ -186,7 +186,8 @@ class DecomposedTerraformPrompts:
         - Security Level: {user_input['security_level']}
         
         AVAILABLE DEPENDENCIES:
-        {self.format_dependencies(dependencies)}
+        {self.format_dependencies(networking_deps)}
+        {self.format_dependencies(security_deps)}
         
         DEPENDENCY USAGE IN CODE:
         Use these exact references in your Terraform code:
@@ -233,7 +234,8 @@ class DecomposedTerraformPrompts:
         
         VARIABLES SECTION:
         Include these variables in variables.tf:
-        {self.get_dependency_variables(dependencies)}
+        {self.get_dependency_variables(networking_deps)}
+        {self.get_dependency_variables(security_deps)}
         
         variable "db_instance_class" {{
           description = "RDS instance class"
@@ -272,7 +274,9 @@ class DecomposedTerraformPrompts:
         - Security Level: {user_input['security_level']}
         
         AVAILABLE DEPENDENCIES:
-        {self.format_dependencies(dependencies)}
+        {self.format_dependencies(networking_deps)}
+        {self.format_dependencies(security_deps)}
+        {self.format_dependencies(database_deps)}
         
         DEPENDENCY USAGE IN CODE:
         Use these exact references in your Terraform code:
@@ -333,7 +337,9 @@ class DecomposedTerraformPrompts:
         
         VARIABLES SECTION:
         Include these variables in variables.tf:
-        {self.get_dependency_variables(dependencies)}
+        {self.get_dependency_variables(networking_deps)}
+        {self.get_dependency_variables(security_deps)}
+        {self.get_dependency_variables(database_deps)}
         
         variable "instance_type" {{
           description = "EC2 instance type"
